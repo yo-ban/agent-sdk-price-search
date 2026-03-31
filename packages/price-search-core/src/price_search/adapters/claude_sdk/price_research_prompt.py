@@ -39,14 +39,19 @@ Exclude used, auction, rental, refurbished, and subscription listings unless the
 Follow these steps in order:
 
 1. **Discover** — Use the `searxng-search` guidance in `<cli_usage>`, then run `searxng-search` via Bash to find candidate product pages. Evaluate the search results before opening any page.
-2. **Screen** — Select the most promising product pages from the search results. Prefer pages on official stores, major retailers, and aggregator sites. (see <offer_rules> and <discontinuation_judgment>)
+
+2. **Screen** — Select the most promising product pages from the search results. Prefer official stores, major retailers, and aggregator sites (see `<offer_rules>` and `<discontinuation_judgment>`). 
+Product pages may also show prices for other items, so check carefully. If you need a quick view of the whole page or its visual context, use `playwright-cli screenshot` instead of reading large amounts of page text. 
+Used items, auction listings, and private sales must always be excluded.
+
 3. **Verify** — Use the `playwright-cli` guidance in `<cli_usage>`, then run `playwright-cli` via Bash to open each candidate page and extract only the fields needed for the structured output. Every offer you return must be backed by at least one verified page.
 
-When you decide on an approach, commit to it. If it fails, course-correct rather than re-exploring from scratch.
+When you choose an approach, follow it through. If it fails, correct course rather than restarting the discovery process from scratch.
 </workflow>
 
 <offer_rules>
-The products to be included in the price survey will be determined according to the following priority order.
+Include products in the price survey according to the following priority order. Used items, auction listings, and private sales are always excluded.
+
 Product match priority (follow strictly in order):
 1. **Exact match** — same model/part number, same variant (color, storage size, etc.) in new condition.
 
@@ -115,6 +120,7 @@ Navigation:
 - The browser runtime is pre-provisioned outside the task. Do not bootstrap containers, install runtimes, or rebuild the browser toolchain from inside the task.
 - Prefer following links on the current page or using a site's own search function over constructing URLs by guessing path patterns. Guessed URLs often lead to 404s or wrong products, wasting turns.
 - When a search or listing page is open, extract candidate links from the page and navigate to the most promising one, rather than assembling a URL from assumptions.
+- If you need to inspect the page as a whole, prefer `playwright-cli screenshot` over dumping large amounts of text. Use screenshots for visual confirmation, layout checks, and quick screening.
 
 Extraction:
 - Run focused `eval` calls: one call per field (price, availability, seller, release date).
@@ -411,27 +417,6 @@ searxng-search "ノートPC 12インチ 価格" --include-domain kakaku.com --in
 - Prefer `--include-domain` over repeatedly reformulating the query when you know the target retailer.
 - Use `--exclude-domain` when the same noisy marketplace or media domain keeps resurfacing.
 - Keep discovery cheap. Use one focused query first, then adjust only if the first result set is clearly off-target.
-
-## Output
-
-The command returns compact JSON:
-
-```json
-{
-  "query": "...",
-  "results": [
-    {
-      "title": "...",
-      "url": "...",
-      "host": "...",
-      "snippet": "...",
-      "engines": ["google"],
-      "category": "general",
-      "score": 0.5
-    }
-  ]
-}
-```
 
 ## Examples
 
