@@ -341,9 +341,12 @@ docker compose -f infra/docker/playwright/compose.yaml up -d --build
 docker compose -f infra/docker/playwright/compose.yaml down
 ```
 
+`PLAYWRIGHT_XVFB_SCREEN=1920x1080x24` と `PLAYWRIGHT_WINDOW_SIZE=1920,1080` が既定です。解像度を変えたい場合は `PLAYWRIGHT_XVFB_SCREEN=2560x1440x24 PLAYWRIGHT_WINDOW_SIZE=2560,1440 docker compose -f infra/docker/playwright/compose.yaml up -d --build` のように両方を揃えて指定します。
+
 **動作方針:**
 
 - browser launch は `headless = false` / `viewport = null` が既定（Patchright 推奨）
+- browser window は `--window-size=1920,1080` を既定にしており、screenshot の視認性を確保する
 - Docker 内では `chromiumSandbox = false` も明示
 - `workspace_assets/bin/playwright-cli` は container の自動 bootstrap を行いません。runtime が無い場合は unavailable エラーを返します
 - container 名を変えたい場合は `PRICE_SEARCH_PLAYWRIGHT_CONTAINER_NAME` 環境変数を使います

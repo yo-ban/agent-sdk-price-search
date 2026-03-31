@@ -4,7 +4,8 @@
     "userDataDir": "/artifacts/profile/default",
     "launchOptions": {
       "headless": false,
-      "chromiumSandbox": false
+      "chromiumSandbox": false,
+      "args": ["--window-size=1920,1080"]
     },
     "contextOptions": {
       "locale": "ja-JP",

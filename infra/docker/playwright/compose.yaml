@@ -5,6 +5,9 @@ services:
       context: ../../..
       dockerfile: infra/docker/playwright/Dockerfile
     container_name: price-search-playwright-cli
+    environment:
+      PLAYWRIGHT_XVFB_SCREEN: ${PLAYWRIGHT_XVFB_SCREEN:-1920x1080x24}
+      PLAYWRIGHT_WINDOW_SIZE: ${PLAYWRIGHT_WINDOW_SIZE:-1920,1080}
     ipc: host
     restart: unless-stopped
     volumes:
