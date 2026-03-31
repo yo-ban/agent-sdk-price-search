@@ -4,8 +4,8 @@
 # subscription
 [claude]
 provider = "subscription" # `bedrock` / `anthropic` / `subscription` / `openrouter`
-primary_model = "claude-haiku-4-5"
-small_model = "claude-sonnet-4-6"
+primary_model = "claude-sonnet-4-6"
+small_model = "claude-haiku-4-5"
 
 # bedrock
 # [claude]
