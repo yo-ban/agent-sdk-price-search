@@ -23,6 +23,7 @@ from price_search.adapters.claude_sdk.price_research_prompt import (
 )
 from price_search.adapters.claude_sdk.provider_environment import build_claude_code_env
 from price_search.adapters.claude_sdk.research_validation_hooks import (
+    build_post_tool_use_hooks,
     build_pre_tool_use_hooks,
 )
 from price_search.adapters.claude_sdk.sdk_runtime_patches import apply_runtime_patches
@@ -174,6 +175,7 @@ def _build_options(
         ],
         hooks={
             "PreToolUse": build_pre_tool_use_hooks(),
+            "PostToolUse": build_post_tool_use_hooks(),
         },
         disallowed_tools=DISALLOWED_BUILT_IN_TOOLS,
         permission_mode="bypassPermissions",

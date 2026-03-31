@@ -11,6 +11,8 @@ from price_search.adapters.claude_sdk.research_validation_hooks import (
     BASH_TOOL_NAME,
     READ_TOOL_NAME,
     STRUCTURED_OUTPUT_TOOL_NAME,
+    annotate_playwright_navigation_result,
+    build_post_tool_use_hooks,
     build_pre_tool_use_hooks,
     validate_bash_command_before_execute,
     validate_candidate_research_result,
@@ -103,6 +105,14 @@ def test_build_pre_tool_use_hooks_registers_structured_output_guard() -> None:
     assert any(getattr(hook, "matcher", None) == BASH_TOOL_NAME for hook in hooks)
     assert any(getattr(hook, "matcher", None) == READ_TOOL_NAME for hook in hooks)
     assert any(getattr(hook, "matcher", None) == STRUCTURED_OUTPUT_TOOL_NAME for hook in hooks)
+
+
+def test_build_post_tool_use_hooks_registers_bash_annotation() -> None:
+    """PostToolUse should register the Bash annotation hook."""
+    hooks = build_post_tool_use_hooks()
+
+    assert len(hooks) == 1
+    assert getattr(hooks[0], "matcher", None) == BASH_TOOL_NAME
 
 
 def test_validate_bash_command_hook_denies_full_page_text_dump() -> None:
@@ -219,6 +229,126 @@ def test_validate_bash_command_hook_allows_grep_without_head_or_tail() -> None:
                         'playwright-cli eval "document.body.innerText" '
                         '| grep -E "ASIN|型番"'
                     ),
+                },
+            },
+            None,
+            hook_context,
+        )
+
+    result = asyncio.run(run_hook())
+
+    assert result == {}
+
+
+def test_annotate_playwright_navigation_result_warns_on_used_item_snapshot(
+    tmp_path: Path,
+) -> None:
+    """Playwright open/goto results should warn when the snapshot contains used-item text."""
+    hook_context = cast(HookContext, {"signal": None})
+    snapshot_path = tmp_path / "page.yml"
+    snapshot_path.write_text('- text "中古 22,000円" [ref=e1]\n', encoding="utf-8")
+
+    async def run_hook() -> SyncHookJSONOutput:
+        return await annotate_playwright_navigation_result(
+            {
+                "session_id": "session-1",
+                "transcript_path": "/tmp/transcript.jsonl",
+                "cwd": str(tmp_path),
+                "agent_id": "agent-1",
+                "agent_type": "default",
+                "hook_event_name": "PostToolUse",
+                "tool_name": BASH_TOOL_NAME,
+                "tool_use_id": "tool-4a",
+                "tool_input": {
+                    "command": "playwright-cli open https://example.com/product",
+                },
+                "tool_response": {
+                    "stdout": f"### Snapshot\n- [Snapshot]({snapshot_path})\n",
+                    "stderr": "",
+                    "interrupted": False,
+                    "isImage": False,
+                    "noOutputExpected": False,
+                },
+            },
+            None,
+            hook_context,
+        )
+
+    result = asyncio.run(run_hook())
+
+    hook_output = cast(dict[str, object], result.get("hookSpecificOutput"))
+    additional_context = cast(str, hook_output.get("additionalContext"))
+    assert hook_output.get("hookEventName") == "PostToolUse"
+    assert "contains '中古'" in additional_context
+
+
+def test_annotate_playwright_navigation_result_ignores_non_navigation_command(
+    tmp_path: Path,
+) -> None:
+    """Only open/goto results should be annotated."""
+    hook_context = cast(HookContext, {"signal": None})
+    snapshot_path = tmp_path / "page.yml"
+    snapshot_path.write_text('- text "中古 22,000円" [ref=e1]\n', encoding="utf-8")
+
+    async def run_hook() -> SyncHookJSONOutput:
+        return await annotate_playwright_navigation_result(
+            {
+                "session_id": "session-1",
+                "transcript_path": "/tmp/transcript.jsonl",
+                "cwd": str(tmp_path),
+                "agent_id": "agent-1",
+                "agent_type": "default",
+                "hook_event_name": "PostToolUse",
+                "tool_name": BASH_TOOL_NAME,
+                "tool_use_id": "tool-4b",
+                "tool_input": {
+                    "command": 'playwright-cli eval "document.title"',
+                },
+                "tool_response": {
+                    "stdout": f"### Snapshot\n- [Snapshot]({snapshot_path})\n",
+                    "stderr": "",
+                    "interrupted": False,
+                    "isImage": False,
+                    "noOutputExpected": False,
+                },
+            },
+            None,
+            hook_context,
+        )
+
+    result = asyncio.run(run_hook())
+
+    assert result == {}
+
+
+def test_annotate_playwright_navigation_result_ignores_snapshot_without_used_item_text(
+    tmp_path: Path,
+) -> None:
+    """Navigation results without 中古 in the snapshot should stay unannotated."""
+    hook_context = cast(HookContext, {"signal": None})
+    snapshot_path = tmp_path / "page.yml"
+    snapshot_path.write_text('- text "新品 49,800円" [ref=e1]\n', encoding="utf-8")
+
+    async def run_hook() -> SyncHookJSONOutput:
+        return await annotate_playwright_navigation_result(
+            {
+                "session_id": "session-1",
+                "transcript_path": "/tmp/transcript.jsonl",
+                "cwd": str(tmp_path),
+                "agent_id": "agent-1",
+                "agent_type": "default",
+                "hook_event_name": "PostToolUse",
+                "tool_name": BASH_TOOL_NAME,
+                "tool_use_id": "tool-4c",
+                "tool_input": {
+                    "command": "playwright-cli goto https://example.com/product",
+                },
+                "tool_response": {
+                    "stdout": f"### Snapshot\n- [Snapshot]({snapshot_path})\n",
+                    "stderr": "",
+                    "interrupted": False,
+                    "isImage": False,
+                    "noOutputExpected": False,
                 },
             },
             None,

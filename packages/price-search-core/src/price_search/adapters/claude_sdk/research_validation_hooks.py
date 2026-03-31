@@ -10,6 +10,7 @@ from claude_agent_sdk import HookMatcher
 from claude_agent_sdk.types import (
     HookCallback,
     HookContext,
+    PostToolUseHookInput,
     PreToolUseHookInput,
     SyncHookJSONOutput,
 )
@@ -26,6 +27,11 @@ PLAYWRIGHT_SNAPSHOT_READ_GUIDANCE = (
     "Do not read Playwright snapshot YAML directly. Use snapshot-inspect first, "
     "for example `snapshot-inspect summary <path>` or `snapshot-inspect find <path> --text \"...\"`."
 )
+USED_ITEM_WARNING_GUIDANCE = (
+    "Warning: the Playwright snapshot for this page contains '中古'. "
+    "This page may include used-item content, so do not treat any displayed price as eligible "
+    "until you verify that it refers to a new-condition listing for the requested product."
+)
 MAX_DIRECT_SNAPSHOT_READ_CHARS = 5000
 XML_MARKERS = (
     "<parameter",
@@ -38,6 +44,10 @@ FULL_PAGE_TEXT_EVAL_PATTERN = re.compile(
     re.DOTALL,
 )
 HEAD_OR_TAIL_PATTERN = re.compile(r"\|\s*(?:head|tail)\b")
+PLAYWRIGHT_NAVIGATION_PATTERN = re.compile(
+    r"playwright-cli(?:\s+--debug)?\s+(?:open|goto)\b"
+)
+SNAPSHOT_LINK_PATTERN = re.compile(r"\[Snapshot\]\(([^)]+)\)")
 
 
 def build_pre_tool_use_hooks() -> list[HookMatcherType]:
@@ -54,6 +64,16 @@ def build_pre_tool_use_hooks() -> list[HookMatcherType]:
         HookMatcher(
             matcher=STRUCTURED_OUTPUT_TOOL_NAME,
             hooks=[cast(HookCallback, validate_structured_output_before_finalize)],
+        ),
+    ]
+
+
+def build_post_tool_use_hooks() -> list[HookMatcherType]:
+    """価格調査エージェント用の PostToolUse hook 群を返す。"""
+    return [
+        HookMatcher(
+            matcher=BASH_TOOL_NAME,
+            hooks=[cast(HookCallback, annotate_playwright_navigation_result)],
         ),
     ]
 
@@ -178,6 +198,29 @@ async def validate_read_request_before_execute(
     }
 
 
+async def annotate_playwright_navigation_result(
+    input_data: PostToolUseHookInput,
+    tool_use_id: str | None,
+    context: HookContext,
+) -> SyncHookJSONOutput:
+    """中古表記を含む Playwright navigation 結果に注意文を付ける。"""
+    del tool_use_id, context
+    command = _string_field(input_data.get("tool_input"), "command")
+    if not PLAYWRIGHT_NAVIGATION_PATTERN.search(command):
+        return {}
+
+    snapshot_path = _extract_snapshot_path(input_data.get("tool_response"))
+    if snapshot_path is None or not _snapshot_mentions_used_item(snapshot_path):
+        return {}
+
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": input_data["hook_event_name"],
+            "additionalContext": USED_ITEM_WARNING_GUIDANCE,
+        }
+    }
+
+
 def _is_blocked_playwright_eval(command: str) -> bool:
     """生の全文取得か head/tail 付き全文取得だけを拒否する。"""
     if not command:
@@ -208,6 +251,29 @@ def _looks_like_playwright_snapshot(file_path: str) -> bool:
         return False
     prefix = content[:512]
     return "[ref=" in prefix and prefix.lstrip().startswith("- ")
+
+
+def _extract_snapshot_path(tool_response: Any) -> Path | None:
+    """Bash tool response の stdout から snapshot path を取り出す。"""
+    if not isinstance(tool_response, dict):
+        return None
+    stdout = str(tool_response.get("stdout") or "")
+    match = SNAPSHOT_LINK_PATTERN.search(stdout)
+    if match is None:
+        return None
+    snapshot_path = Path(match.group(1))
+    if snapshot_path.exists() and snapshot_path.is_file():
+        return snapshot_path
+    return None
+
+
+def _snapshot_mentions_used_item(snapshot_path: Path) -> bool:
+    """snapshot 内に中古表記があるかを調べる。"""
+    try:
+        content = snapshot_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "中古" in content
 
 
 def _string_field(payload: Any, key: str) -> str:
