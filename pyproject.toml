@@ -1,0 +1,65 @@
+[project]
+name = "price-search-workspace"
+version = "0.1.0"
+description = "Workspace root for the price-search monorepo."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "price-search-core",
+  "price-search-launcher",
+  "price-search-web-api",
+  "searxng-search-cli",
+  "snapshot-inspect-cli",
+]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.408",
+  "pytest==9.0.2",
+  "ruff==0.15.7",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "flatt"
+url = "https://pypi.flatt.tech/simple/"
+default = true
+
+[tool.uv.workspace]
+members = [
+  "packages/price-search-core",
+  "apps/price-search-launcher",
+  "apps/price-search-web-api",
+  "apps/searxng-search-cli",
+  "apps/snapshot-inspect-cli",
+]
+
+[tool.uv.sources]
+price-search-core = { workspace = true }
+price-search-launcher = { workspace = true }
+price-search-web-api = { workspace = true }
+searxng-search-cli = { workspace = true }
+snapshot-inspect-cli = { workspace = true }
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "packages/price-search-core/src",
+  "apps/price-search-launcher/src",
+  "apps/price-search-web-api/src",
+  "apps/searxng-search-cli/src",
+  "apps/snapshot-inspect-cli/src",
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "D"]
+ignore = ["D203", "D213", "D403", "D415", "E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+# Docker-backed wrapper for a pre-provisioned playwright-cli runtime.
+# The browser service must already be running via infra/docker/playwright/compose.yaml.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT_DEFAULT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKSPACE_ROOT="${PRICE_SEARCH_WORKSPACE_ROOT:-${WORKSPACE_ROOT_DEFAULT}}"
+WORKSPACE_ROOT="$(cd "${WORKSPACE_ROOT}" && pwd)"
+
+CONTAINER_NAME="${PRICE_SEARCH_PLAYWRIGHT_CONTAINER_NAME:-price-search-playwright-cli}"
+CONFIG_PATH="/opt/price-search/playwright/cli.config.json"
+RUNTIME_PREFIX="/opt/playwright-cli-runtime"
+CLI_ENTRY="${RUNTIME_PREFIX}/node_modules/@playwright/cli/playwright-cli.js"
+CHROME_EXECUTABLE="/opt/google/chrome/chrome"
+DISPLAY_NUMBER=":99"
+FILTER_SCRIPT="${WORKSPACE_ROOT}/playwright/filter_playwright_cli_output.py"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+HOST_USER="${HOST_UID}:${HOST_GID}"
+CONTAINER_TMP_ROOT="/host-tmp"
+
+DEBUG_MODE=0
+CLI_ARGS=()
+for argument in "$@"; do
+  if [ "${argument}" = "--debug" ]; then
+    DEBUG_MODE=1
+    continue
+  fi
+  CLI_ARGS+=("${argument}")
+done
+
+require_container() {
+  if ! docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+    printf '%s\n' "playwright browser service is not running" >&2
+    exit 1
+  fi
+
+  if [ "$(docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}")" != "true" ]; then
+    printf '%s\n' "playwright browser service is not running" >&2
+    exit 1
+  fi
+}
+
+require_runtime() {
+  if docker exec "${CONTAINER_NAME}" bash -lc "test -f '${CLI_ENTRY}' && test -x '${CHROME_EXECUTABLE}' && test -S /tmp/.X11-unix/X99" >/dev/null 2>&1; then
+    return
+  fi
+
+  printf '%s\n' "playwright runtime is unavailable" >&2
+  exit 1
+}
+
+map_workspace_root_to_container() {
+  case "${WORKSPACE_ROOT}" in
+    /tmp/*)
+      printf '%s\n' "${CONTAINER_TMP_ROOT}/${WORKSPACE_ROOT#/tmp/}"
+      ;;
+    *)
+      printf '%s\n' "playwright workspace is unavailable" >&2
+      exit 1
+      ;;
+  esac
+}
+
+run_cli() {
+  docker exec \
+    --interactive \
+    --user "${HOST_USER}" \
+    --workdir "${CONTAINER_WORKDIR}" \
+    --env HOME=/tmp \
+    --env DISPLAY="${DISPLAY_NUMBER}" \
+    --env PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    "${CONTAINER_NAME}" \
+    node "${CLI_ENTRY}" --config "${CONFIG_PATH}" "${CLI_ARGS[@]}"
+}
+
+require_container
+require_runtime
+CONTAINER_WORKDIR="$(map_workspace_root_to_container)"
+
+if [ "${DEBUG_MODE}" -eq 1 ]; then
+  run_cli
+  exit $?
+fi
+
+STDOUT_CAPTURE="$(mktemp)"
+trap 'rm -f "${STDOUT_CAPTURE}"' EXIT
+
+set +e
+run_cli >"${STDOUT_CAPTURE}"
+COMMAND_STATUS=$?
+set -e
+
+python3 "${FILTER_SCRIPT}" "${STDOUT_CAPTURE}"
+exit "${COMMAND_STATUS}"

@@ -1,0 +1,14 @@
+use_default_settings: true
+
+search:
+  default_lang: ja-JP
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "price-search-local-searxng"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"

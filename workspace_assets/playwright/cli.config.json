@@ -1,0 +1,15 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "userDataDir": "/artifacts/profile/default",
+    "launchOptions": {
+      "headless": false,
+      "chromiumSandbox": false
+    },
+    "contextOptions": {
+      "locale": "ja-JP",
+      "timezoneId": "Asia/Tokyo",
+      "viewport": null
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Pre-provisioned headed Patchright runtime for local playwright-cli execution.
+services:
+  playwright-cli:
+    build:
+      context: ../../..
+      dockerfile: infra/docker/playwright/Dockerfile
+    container_name: price-search-playwright-cli
+    ipc: host
+    restart: unless-stopped
+    volumes:
+      - /tmp:/host-tmp

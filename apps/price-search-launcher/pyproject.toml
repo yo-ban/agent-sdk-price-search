@@ -1,0 +1,22 @@
+[project]
+name = "price-search-launcher"
+version = "0.1.0"
+description = "Launcher for isolated price-search runs."
+readme = "../../README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "price-search-core",
+]
+
+[project.scripts]
+price-search-run = "price_search_launcher.handler.launcher:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/price_search_launcher"]
+
+[tool.uv.sources]
+price-search-core = { workspace = true }

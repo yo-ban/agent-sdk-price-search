@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Workspace-local wrapper for the Python SearXNG discovery CLI.
+# The agent and skills call `searxng-search` directly, so this script keeps the
+# command name stable and resolves the workspace root automatically.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT_DEFAULT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKSPACE_ROOT="${PRICE_SEARCH_WORKSPACE_ROOT:-${WORKSPACE_ROOT_DEFAULT}}"
+WORKSPACE_ROOT="$(cd "${WORKSPACE_ROOT}" && pwd)"
+
+cd "${WORKSPACE_ROOT}"
+exec uv run searxng-search "$@"

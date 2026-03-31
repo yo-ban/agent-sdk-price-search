@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Workspace-local wrapper for the Playwright snapshot inspection CLI.
+# The agent calls `snapshot-inspect` inside the temp workspace, so this script
+# resolves the workspace root and forwards to the installed Python app.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT_DEFAULT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKSPACE_ROOT="${PRICE_SEARCH_WORKSPACE_ROOT:-${WORKSPACE_ROOT_DEFAULT}}"
+WORKSPACE_ROOT="$(cd "${WORKSPACE_ROOT}" && pwd)"
+
+cd "${WORKSPACE_ROOT}"
+exec uv run snapshot-inspect "$@"

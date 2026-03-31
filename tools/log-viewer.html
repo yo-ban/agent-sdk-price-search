@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Price Search Agent Log Viewer</title>
+<style>
+/* --- Reset & Base --- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface2: #eef0f4;
+  --border: #d5d9e2;
+  --text: #1a1d27;
+  --text-dim: #6b7085;
+  --accent: #4060d6;
+  --accent-dim: #d6dff7;
+  --green: #16a34a;
+  --red: #dc2626;
+  --orange: #d97706;
+  --cyan: #0891b2;
+  --purple: #7c3aed;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #232733;
+  --border: #2e3345;
+  --text: #e0e4f0;
+  --text-dim: #8b90a5;
+  --accent: #6c8cff;
+  --accent-dim: #3a4d8c;
+  --green: #34d399;
+  --red: #f87171;
+  --orange: #fbbf24;
+  --cyan: #22d3ee;
+  --purple: #a78bfa;
+  --icon-green-bg: #1e3a2e;
+  --icon-purple-bg: #2d2340;
+  --icon-cyan-bg: #1a3340;
+  --icon-red-bg: #3a1a1a;
+}
+html { font-size: 14px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+
+/* --- Layout --- */
+.app { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+header {
+  display: flex; align-items: center; gap: 1rem;
+  padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+header .subtitle { color: var(--text-dim); font-size: 0.85rem; }
+
+/* --- Drop Zone --- */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 1.5rem;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(108, 140, 255, 0.05);
+}
+.drop-zone p { color: var(--text-dim); margin-top: 0.5rem; font-size: 0.85rem; }
+.drop-zone .label { font-size: 1rem; font-weight: 500; color: var(--text); }
+.drop-zone input[type="file"] { display: none; }
+
+/* --- Tabs --- */
+.tabs { display: none; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.tabs.active { display: flex; gap: 0; }
+.tab-btn {
+  background: none; border: none; color: var(--text-dim); font: inherit;
+  padding: 0.6rem 1.2rem; cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* --- Summary Cards --- */
+.summary-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem; margin-bottom: 1.5rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+.card .card-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.card .card-value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; font-family: var(--font-mono); }
+.card .card-sub { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.15rem; }
+.card-value.success { color: var(--green); }
+.card-value.error { color: var(--red); }
+
+/* --- Timeline --- */
+.timeline { position: relative; }
+.tl-event {
+  display: grid;
+  grid-template-columns: 72px 28px 1fr;
+  gap: 0 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.tl-event:hover { background: var(--surface); }
+.tl-time {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: right;
+  padding-top: 0.2rem;
+  white-space: nowrap;
+}
+.tl-icon {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.tl-icon.tool  { background: var(--accent-dim); color: var(--accent); }
+.tl-icon.text  { background: var(--icon-green-bg, #dcfce7); color: var(--green); }
+.tl-icon.think { background: var(--icon-purple-bg, #ede9fe); color: var(--purple); }
+.tl-icon.result { background: var(--icon-cyan-bg, #cffafe); color: var(--cyan); }
+.tl-icon.system { background: var(--surface2); color: var(--text-dim); }
+.tl-icon.error { background: var(--icon-red-bg, #fee2e2); color: var(--red); }
+.tl-body { min-width: 0; }
+.tl-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.tl-title .tool-name { color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; }
+.tl-title .token-badge {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  background: var(--surface2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+.tl-snippet {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.tl-detail {
+  display: none;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
+  color: var(--text-dim);
+}
+.tl-event.expanded .tl-detail { display: block; }
+
+/* --- Charts --- */
+.chart-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.chart-container h3 { font-size: 0.9rem; margin-bottom: 1rem; font-weight: 500; }
+.chart-area { position: relative; height: 200px; }
+.chart-area svg { width: 100%; height: 100%; }
+.chart-legend {
+  display: flex; gap: 1.25rem; margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-dim);
+}
+.chart-legend span::before {
+  content: ''; display: inline-block;
+  width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 0.35rem; vertical-align: middle;
+}
+.chart-legend .leg-input::before  { background: var(--accent); }
+.chart-legend .leg-cache::before  { background: var(--green); }
+.chart-legend .leg-output::before { background: var(--orange); }
+
+/* --- Tool Stats --- */
+.tool-stats-table {
+  width: 100%; border-collapse: collapse;
+}
+.tool-stats-table th {
+  text-align: left; font-size: 0.75rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+}
+.tool-stats-table td {
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.tool-stats-table td:first-child { font-family: var(--font-mono); color: var(--accent); }
+.bar-cell { width: 40%; }
+.bar-bg {
+  height: 8px; border-radius: 4px; background: var(--surface2); position: relative; overflow: hidden;
+}
+.bar-fg { height: 100%; border-radius: 4px; background: var(--accent); }
+
+/* --- File list --- */
+.file-list {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.file-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.file-chip:hover { border-color: var(--accent); }
+.file-chip.active { border-color: var(--accent); background: var(--accent-dim); }
+.file-chip .chip-remove {
+  margin-left: 0.5rem; color: var(--text-dim); cursor: pointer;
+}
+.file-chip .chip-remove:hover { color: var(--red); }
+
+/* --- Comparison --- */
+.compare-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+}
+.compare-col h3 {
+  font-size: 0.85rem; font-weight: 500; margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* --- Theme Toggle --- */
+.theme-toggle {
+  margin-left: auto;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .compare-grid { grid-template-columns: 1fr; }
+  .tl-event { grid-template-columns: 56px 24px 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Price Search Agent Log Viewer</h1>
+      <div class="subtitle">JSONL agent activity logs</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle">Dark</button>
+  </header>
+
+  <div class="drop-zone" id="dropZone">
+    <div class="label">JSONL ログファイルをドロップ、またはクリックして選択</div>
+    <p>複数ファイルを読み込むと比較できます</p>
+    <input type="file" id="fileInput" accept=".jsonl,.json,.log" multiple>
+  </div>
+
+  <div class="file-list" id="fileList"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="summary">Summary</button>
+    <button class="tab-btn" data-tab="timeline">Timeline</button>
+    <button class="tab-btn" data-tab="tokens">Tokens</button>
+    <button class="tab-btn" data-tab="tools">Tools</button>
+    <button class="tab-btn" data-tab="compare">Compare</button>
+  </div>
+
+  <div id="panels">
+    <div class="tab-panel active" id="panel-summary"></div>
+    <div class="tab-panel" id="panel-timeline"></div>
+    <div class="tab-panel" id="panel-tokens"></div>
+    <div class="tab-panel" id="panel-tools"></div>
+    <div class="tab-panel" id="panel-compare"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const state = {
+  runs: new Map(),       // filename -> ParsedRun
+  activeFile: null,      // currently viewed filename
+};
+
+// ---------------------------------------------------------------------------
+// Parsing
+// ---------------------------------------------------------------------------
+function parseJSONL(text) {
+  const events = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try { events.push(JSON.parse(trimmed)); } catch {}
+  }
+  return events;
+}
+
+function analyzeRun(events) {
+  const run = {
+    events,
+    runId: "",
+    productName: "",
+    market: "",
+    currency: "",
+    maxOffers: 0,
+    model: "",
+    startTime: null,
+    endTime: null,
+    durationMs: 0,
+    totalCostUsd: null,
+    numTurns: null,
+    isError: false,
+    stopReason: "",
+    resultSubtype: "",
+    // Token accumulators
+    tokenSnapshots: [],   // {time, inputCum, cacheCum, outputCum}
+    totalInput: 0,
+    totalCache: 0,
+    totalOutput: 0,
+    // Timeline items
+    timelineItems: [],
+    // Tool stats
+    toolCounts: {},
+    toolErrors: {},
+  };
+
+  let inputCum = 0, cacheCum = 0, outputCum = 0;
+
+  for (const ev of events) {
+    const time = new Date(ev.logged_at);
+    if (!run.startTime || time < run.startTime) run.startTime = time;
+    if (!run.endTime || time > run.endTime) run.endTime = time;
+    run.runId = ev.run_id || run.runId;
+    const p = ev.payload || {};
+
+    if (ev.event_type === "research_started") {
+      run.productName = p.product_name || "";
+      run.market = p.market || "";
+      run.currency = p.currency || "";
+      run.maxOffers = p.max_offers || 0;
+      run.timelineItems.push({
+        time, type: "system", icon: "S",
+        title: `Research started: ${run.productName}`,
+        snippet: `market=${run.market} currency=${run.currency} max_offers=${run.maxOffers}`,
+        detail: JSON.stringify(p, null, 2),
+      });
+    }
+
+    if (ev.event_type === "system_message") {
+      run.model = p.data?.model || run.model;
+      run.timelineItems.push({
+        time, type: "system", icon: "I",
+        title: `System: ${p.subtype || "message"}`,
+        snippet: run.model ? `model=${run.model}` : "",
+        detail: JSON.stringify(p.data || p, null, 2),
+      });
+    }
+
+    if (ev.event_type === "assistant_message") {
+      const usage = p.usage || {};
+      const inp = usage.input_tokens || 0;
+      const cache = usage.cache_read_input_tokens || 0;
+      const cacheCreate = usage.cache_creation_input_tokens || 0;
+      const out = usage.output_tokens || 0;
+      inputCum += inp + cacheCreate;
+      cacheCum += cache;
+      outputCum += out;
+
+      const content = p.content || [];
+      for (const block of content) {
+        if (block.type === "tool_use") {
+          const name = block.name || "unknown";
+          run.toolCounts[name] = (run.toolCounts[name] || 0) + 1;
+          const inputStr = block.input ? JSON.stringify(block.input) : "";
+          const inputSnippet = inputStr.length > 120 ? inputStr.slice(0, 120) + "..." : inputStr;
+          run.timelineItems.push({
+            time, type: "tool", icon: "T",
+            title: name,
+            titleClass: "tool-name",
+            tokenBadge: out > 0 ? `${out} out` : null,
+            snippet: inputSnippet,
+            detail: JSON.stringify(block.input || {}, null, 2),
+          });
+        } else if (block.type === "text" && block.text) {
+          run.timelineItems.push({
+            time, type: "text", icon: "A",
+            title: "Agent text",
+            tokenBadge: out > 0 ? `${out} out` : null,
+            snippet: block.text.slice(0, 200),
+            detail: block.text,
+          });
+        } else if (block.type === "thinking" || block.type === "ThinkingBlock") {
+          const thinkingText = block.thinking || block.text || "";
+          run.timelineItems.push({
+            time, type: "think", icon: "?",
+            tokenBadge: out > 0 ? `${out} out` : null,
+            title: "Thinking",
+            snippet: thinkingText.slice(0, 200),
+            detail: thinkingText || JSON.stringify(block, null, 2),
+          });
+        }
+      }
+
+      run.tokenSnapshots.push({ time, inputCum, cacheCum, outputCum });
+    }
+
+    if (ev.event_type === "user_message") {
+      const content = p.content;
+      let snippet = "";
+      let detail = "";
+      let isErr = false;
+
+      // content 配列内の全ブロックからテキストを抽出
+      if (Array.isArray(content)) {
+        const parts = [];
+        for (const block of content) {
+          if (block.type === "tool_result") {
+            if (block.is_error) isErr = true;
+            const c = block.content;
+            if (typeof c === "string") {
+              parts.push(c);
+            } else if (Array.isArray(c)) {
+              for (const inner of c) {
+                if (inner.type === "text" && inner.text) parts.push(inner.text);
+                else if (inner.text) parts.push(inner.text);
+                else parts.push(JSON.stringify(inner));
+              }
+            } else if (c != null) {
+              parts.push(JSON.stringify(c, null, 2));
+            }
+          } else if (block.type === "text" && block.text) {
+            parts.push(block.text);
+          }
+        }
+        if (parts.length > 0) {
+          const joined = parts.join("\n");
+          snippet = joined.slice(0, 200);
+          detail = joined;
+        }
+      } else if (typeof content === "string") {
+        snippet = content.slice(0, 200);
+        detail = content;
+      }
+
+      // content から取れなかった場合は tool_use_result にフォールバック
+      if (!detail && p.tool_use_result) {
+        const fallback = JSON.stringify(p.tool_use_result, null, 2);
+        snippet = fallback.slice(0, 200);
+        detail = fallback;
+      }
+
+      run.timelineItems.push({
+        time, type: isErr ? "error" : "result", icon: isErr ? "!" : "R",
+        title: isErr ? "Tool error" : "Tool result",
+        snippet,
+        detail,
+      });
+    }
+
+    if (ev.event_type === "result_message") {
+      run.totalCostUsd = p.total_cost_usd;
+      run.numTurns = p.num_turns;
+      run.isError = !!p.is_error;
+      run.stopReason = p.stop_reason || "";
+      run.resultSubtype = p.subtype || "";
+      run.durationMs = p.duration_ms || 0;
+      run.timelineItems.push({
+        time, type: "system", icon: "F",
+        title: `Finished (${run.stopReason || run.resultSubtype})`,
+        snippet: `turns=${run.numTurns} cost=$${(run.totalCostUsd || 0).toFixed(4)}`,
+        detail: JSON.stringify(p, null, 2),
+      });
+    }
+
+    if (ev.event_type === "task_started_message") {
+      run.timelineItems.push({
+        time, type: "system", icon: ">",
+        title: `Subtask: ${p.description || p.task_id || ""}`,
+        snippet: `type=${p.task_type || "unknown"}`,
+        detail: JSON.stringify(p, null, 2),
+      });
+    }
+    if (ev.event_type === "task_notification_message") {
+      run.timelineItems.push({
+        time, type: "system", icon: "<",
+        title: `Subtask ${p.status || "done"}: ${(p.summary || "").slice(0, 80)}`,
+        snippet: "",
+        detail: JSON.stringify(p, null, 2),
+      });
+    }
+  }
+
+  run.totalInput = inputCum;
+  run.totalCache = cacheCum;
+  run.totalOutput = outputCum;
+  if (run.startTime && run.endTime && !run.durationMs) {
+    run.durationMs = run.endTime - run.startTime;
+  }
+  return run;
+}
+
+// ---------------------------------------------------------------------------
+// Rendering helpers
+// ---------------------------------------------------------------------------
+function formatDuration(ms) {
+  if (!ms) return "-";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${s % 60}s`;
+}
+
+function formatTokens(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return String(n);
+}
+
+function formatTime(date) {
+  if (!date) return "";
+  return date.toTimeString().slice(0, 8);
+}
+
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (k === "className") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (typeof c === "string") e.appendChild(document.createTextNode(c));
+    else if (c) e.appendChild(c);
+  }
+  return e;
+}
+
+// ---------------------------------------------------------------------------
+// Render: Summary
+// ---------------------------------------------------------------------------
+function renderSummary(run) {
+  const panel = document.getElementById("panel-summary");
+  panel.innerHTML = "";
+
+  const grid = el("div", { className: "summary-grid" });
+
+  function addCard(label, value, sub, cls) {
+    const card = el("div", { className: "card" },
+      el("div", { className: "card-label" }, label),
+      el("div", { className: `card-value ${cls || ""}` }, value),
+    );
+    if (sub) card.appendChild(el("div", { className: "card-sub" }, sub));
+    grid.appendChild(card);
+  }
+
+  addCard("Product", run.productName || "-", `${run.market} / ${run.currency}`);
+  addCard("Status", run.isError ? "ERROR" : "OK", run.stopReason || run.resultSubtype, run.isError ? "error" : "success");
+  addCard("Duration", formatDuration(run.durationMs), run.startTime ? run.startTime.toLocaleString("ja-JP") : "");
+  addCard("Turns", String(run.numTurns ?? "-"), "");
+  addCard("Cost", run.totalCostUsd != null ? `$${run.totalCostUsd.toFixed(4)}` : "-", "");
+  addCard("Model", run.model || "-", "");
+  addCard("Input Tokens", formatTokens(run.totalInput), `cache read: ${formatTokens(run.totalCache)}`);
+  addCard("Output Tokens", formatTokens(run.totalOutput), "");
+
+  panel.appendChild(grid);
+}
+
+// ---------------------------------------------------------------------------
+// Render: Timeline
+// ---------------------------------------------------------------------------
+function renderTimeline(run) {
+  const panel = document.getElementById("panel-timeline");
+  panel.innerHTML = "";
+
+  const timeline = el("div", { className: "timeline" });
+
+  for (const item of run.timelineItems) {
+    const iconEl = el("div", { className: `tl-icon ${item.type}` }, item.icon);
+
+    const titleChildren = [];
+    if (item.titleClass) {
+      titleChildren.push(el("span", { className: item.titleClass }, item.title));
+    } else {
+      titleChildren.push(document.createTextNode(item.title));
+    }
+    if (item.tokenBadge) {
+      titleChildren.push(el("span", { className: "token-badge" }, item.tokenBadge));
+    }
+
+    const titleEl = el("div", { className: "tl-title" }, ...titleChildren);
+    const snippetEl = el("div", { className: "tl-snippet" }, item.snippet || "");
+    const detailEl = el("div", { className: "tl-detail" }, item.detail || "");
+    const bodyEl = el("div", { className: "tl-body" }, titleEl, snippetEl, detailEl);
+    const timeEl = el("div", { className: "tl-time" }, formatTime(item.time));
+
+    const row = el("div", { className: "tl-event" }, timeEl, iconEl, bodyEl);
+    row.addEventListener("click", () => row.classList.toggle("expanded"));
+    timeline.appendChild(row);
+  }
+
+  panel.appendChild(timeline);
+}
+
+// ---------------------------------------------------------------------------
+// Render: Token chart
+// ---------------------------------------------------------------------------
+function renderTokens(run) {
+  const panel = document.getElementById("panel-tokens");
+  panel.innerHTML = "";
+
+  const container = el("div", { className: "chart-container" });
+  container.appendChild(el("h3", null, "Cumulative Token Usage"));
+
+  const chartArea = el("div", { className: "chart-area" });
+  const snaps = run.tokenSnapshots;
+  if (snaps.length < 2) {
+    chartArea.textContent = "Not enough data points.";
+    container.appendChild(chartArea);
+    panel.appendChild(container);
+    return;
+  }
+
+  const maxVal = Math.max(...snaps.map(s => Math.max(s.inputCum, s.cacheCum, s.outputCum)), 1);
+  const w = 800, h = 200, padL = 60, padR = 10, padT = 10, padB = 25;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  function x(i) { return padL + (i / (snaps.length - 1)) * plotW; }
+  function y(v) { return padT + plotH - (v / maxVal) * plotH; }
+
+  function polyline(key, color) {
+    const pts = snaps.map((s, i) => `${x(i)},${y(s[key])}`).join(" ");
+    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" />`;
+  }
+
+  // Resolve current theme colors for SVG
+  const cs = getComputedStyle(document.documentElement);
+  const cTextDim = cs.getPropertyValue("--text-dim").trim();
+  const cBorder = cs.getPropertyValue("--border").trim();
+  const cAccent = cs.getPropertyValue("--accent").trim();
+  const cGreen = cs.getPropertyValue("--green").trim();
+  const cOrange = cs.getPropertyValue("--orange").trim();
+
+  // Y-axis labels
+  let yLabels = "";
+  for (let i = 0; i <= 4; i++) {
+    const val = (maxVal / 4) * i;
+    const yy = y(val);
+    yLabels += `<text x="${padL - 6}" y="${yy + 4}" text-anchor="end" fill="${cTextDim}" font-size="10" font-family="var(--font-mono)">${formatTokens(Math.round(val))}</text>`;
+    yLabels += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="${cBorder}" stroke-width="0.5" />`;
+  }
+
+  // X-axis: turn indices
+  let xLabels = "";
+  const step = Math.max(1, Math.floor(snaps.length / 8));
+  for (let i = 0; i < snaps.length; i += step) {
+    xLabels += `<text x="${x(i)}" y="${h - 2}" text-anchor="middle" fill="${cTextDim}" font-size="10" font-family="var(--font-mono)">${i}</text>`;
+  }
+
+  const svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    ${yLabels}${xLabels}
+    ${polyline("inputCum", cAccent)}
+    ${polyline("cacheCum", cGreen)}
+    ${polyline("outputCum", cOrange)}
+  </svg>`;
+  chartArea.innerHTML = svg;
+
+  const legend = el("div", { className: "chart-legend" },
+    el("span", { className: "leg-input" }, `Input: ${formatTokens(run.totalInput)}`),
+    el("span", { className: "leg-cache" }, `Cache read: ${formatTokens(run.totalCache)}`),
+    el("span", { className: "leg-output" }, `Output: ${formatTokens(run.totalOutput)}`),
+  );
+
+  container.appendChild(chartArea);
+  container.appendChild(legend);
+  panel.appendChild(container);
+
+  // Cache hit ratio card
+  const totalReads = run.totalInput + run.totalCache;
+  const hitRatio = totalReads > 0 ? ((run.totalCache / totalReads) * 100).toFixed(1) : "0";
+  const ratioCard = el("div", { className: "chart-container" });
+  ratioCard.appendChild(el("h3", null, "Cache Performance"));
+  const ratioGrid = el("div", { className: "summary-grid" });
+  function addMiniCard(label, value) {
+    ratioGrid.appendChild(el("div", { className: "card" },
+      el("div", { className: "card-label" }, label),
+      el("div", { className: "card-value" }, value),
+    ));
+  }
+  addMiniCard("Cache Hit Ratio", `${hitRatio}%`);
+  addMiniCard("New Input", formatTokens(run.totalInput));
+  addMiniCard("Cache Reads", formatTokens(run.totalCache));
+  addMiniCard("Output", formatTokens(run.totalOutput));
+  ratioCard.appendChild(ratioGrid);
+  panel.appendChild(ratioCard);
+}
+
+// ---------------------------------------------------------------------------
+// Render: Tool stats
+// ---------------------------------------------------------------------------
+function renderTools(run) {
+  const panel = document.getElementById("panel-tools");
+  panel.innerHTML = "";
+
+  const container = el("div", { className: "chart-container" });
+  container.appendChild(el("h3", null, "Tool Usage"));
+
+  const entries = Object.entries(run.toolCounts).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    container.appendChild(el("p", { style: "color:var(--text-dim)" }, "No tool calls recorded."));
+    panel.appendChild(container);
+    return;
+  }
+
+  const maxCount = entries[0][1];
+  const table = el("table", { className: "tool-stats-table" });
+  const thead = el("thead", null,
+    el("tr", null,
+      el("th", null, "Tool"),
+      el("th", null, "Calls"),
+      el("th", { className: "bar-cell" }, ""),
+    ),
+  );
+  const tbody = el("tbody");
+
+  for (const [name, count] of entries) {
+    const pct = (count / maxCount) * 100;
+    const barBg = el("div", { className: "bar-bg" });
+    const barFg = el("div", { className: "bar-fg", style: `width:${pct}%` });
+    barBg.appendChild(barFg);
+
+    tbody.appendChild(el("tr", null,
+      el("td", null, name),
+      el("td", null, String(count)),
+      el("td", { className: "bar-cell" }, barBg),
+    ));
+  }
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  container.appendChild(table);
+  panel.appendChild(container);
+}
+
+// ---------------------------------------------------------------------------
+// Render: Compare
+// ---------------------------------------------------------------------------
+function renderCompare() {
+  const panel = document.getElementById("panel-compare");
+  panel.innerHTML = "";
+
+  const files = [...state.runs.keys()];
+  if (files.length < 2) {
+    panel.innerHTML = '<p style="color:var(--text-dim)">2 つ以上のログを読み込むと比較できます。</p>';
+    return;
+  }
+
+  const grid = el("div", { className: "compare-grid" });
+
+  // Compare latest two
+  const fileA = files[files.length - 2];
+  const fileB = files[files.length - 1];
+  const runA = state.runs.get(fileA);
+  const runB = state.runs.get(fileB);
+
+  function renderCompareCol(filename, run) {
+    const col = el("div", { className: "compare-col" });
+    col.appendChild(el("h3", null, filename));
+
+    const rows = [
+      ["Product", run.productName],
+      ["Status", run.isError ? "ERROR" : "OK"],
+      ["Duration", formatDuration(run.durationMs)],
+      ["Turns", String(run.numTurns ?? "-")],
+      ["Cost", run.totalCostUsd != null ? `$${run.totalCostUsd.toFixed(4)}` : "-"],
+      ["Input Tokens", formatTokens(run.totalInput)],
+      ["Cache Reads", formatTokens(run.totalCache)],
+      ["Output Tokens", formatTokens(run.totalOutput)],
+      ["Tools Used", Object.keys(run.toolCounts).length + " types, " + Object.values(run.toolCounts).reduce((a, b) => a + b, 0) + " calls"],
+    ];
+
+    const table = el("table", { className: "tool-stats-table" });
+    const tbody = el("tbody");
+    for (const [label, value] of rows) {
+      tbody.appendChild(el("tr", null,
+        el("td", { style: "color:var(--text-dim)" }, label),
+        el("td", null, value),
+      ));
+    }
+    table.appendChild(tbody);
+    col.appendChild(table);
+    return col;
+  }
+
+  grid.appendChild(renderCompareCol(fileA, runA));
+  grid.appendChild(renderCompareCol(fileB, runB));
+  panel.appendChild(grid);
+}
+
+// ---------------------------------------------------------------------------
+// View switching
+// ---------------------------------------------------------------------------
+function showRun(filename) {
+  state.activeFile = filename;
+  const run = state.runs.get(filename);
+  if (!run) return;
+
+  // Update file chips
+  for (const chip of document.querySelectorAll(".file-chip")) {
+    chip.classList.toggle("active", chip.dataset.file === filename);
+  }
+
+  renderSummary(run);
+  renderTimeline(run);
+  renderTokens(run);
+  renderTools(run);
+  renderCompare();
+}
+
+function switchTab(tabName) {
+  for (const btn of document.querySelectorAll(".tab-btn")) {
+    btn.classList.toggle("active", btn.dataset.tab === tabName);
+  }
+  for (const p of document.querySelectorAll(".tab-panel")) {
+    p.classList.toggle("active", p.id === `panel-${tabName}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// File handling
+// ---------------------------------------------------------------------------
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const events = parseJSONL(reader.result);
+    if (events.length === 0) return;
+    const run = analyzeRun(events);
+    state.runs.set(file.name, run);
+    updateFileList();
+    document.getElementById("tabs").classList.add("active");
+    showRun(file.name);
+  };
+  reader.readAsText(file);
+}
+
+function removeFile(filename) {
+  state.runs.delete(filename);
+  updateFileList();
+  if (state.runs.size === 0) {
+    document.getElementById("tabs").classList.remove("active");
+    for (const p of document.querySelectorAll(".tab-panel")) p.innerHTML = "";
+    state.activeFile = null;
+  } else if (state.activeFile === filename) {
+    showRun(state.runs.keys().next().value);
+  } else {
+    renderCompare();
+  }
+}
+
+function updateFileList() {
+  const list = document.getElementById("fileList");
+  list.innerHTML = "";
+  for (const filename of state.runs.keys()) {
+    const run = state.runs.get(filename);
+    const label = run.productName ? `${run.productName}` : filename;
+    const removeBtn = el("span", {
+      className: "chip-remove",
+      onClick: (e) => { e.stopPropagation(); removeFile(filename); },
+    }, "\u00d7");
+    const chip = el("div", {
+      className: "file-chip",
+      "data-file": filename,
+      onClick: () => showRun(filename),
+    }, label, removeBtn);
+    if (filename === state.activeFile) chip.classList.add("active");
+    list.appendChild(chip);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Event wiring
+// ---------------------------------------------------------------------------
+const dropZone = document.getElementById("dropZone");
+const fileInput = document.getElementById("fileInput");
+
+dropZone.addEventListener("click", () => fileInput.click());
+dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("drag-over");
+  for (const file of e.dataTransfer.files) loadFile(file);
+});
+fileInput.addEventListener("change", () => {
+  for (const file of fileInput.files) loadFile(file);
+  fileInput.value = "";
+});
+
+for (const btn of document.querySelectorAll(".tab-btn")) {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+}
+
+// ---------------------------------------------------------------------------
+// Theme toggle (light default, persisted to localStorage)
+// ---------------------------------------------------------------------------
+const themeToggle = document.getElementById("themeToggle");
+function applyTheme(dark) {
+  if (dark) {
+    document.documentElement.setAttribute("data-theme", "dark");
+    themeToggle.textContent = "Light";
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    themeToggle.textContent = "Dark";
+  }
+  localStorage.setItem("log-viewer-theme", dark ? "dark" : "light");
+  // Re-render token chart if a run is active (SVG uses hardcoded colors)
+  if (state.activeFile && state.runs.has(state.activeFile)) {
+    renderTokens(state.runs.get(state.activeFile));
+  }
+}
+themeToggle.addEventListener("click", () => {
+  applyTheme(!document.documentElement.hasAttribute("data-theme"));
+});
+// Restore saved preference
+const savedTheme = localStorage.getItem("log-viewer-theme");
+if (savedTheme === "dark") applyTheme(true);
+</script>
+</body>
+</html>

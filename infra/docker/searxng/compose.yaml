@@ -1,0 +1,12 @@
+# Self-hosted SearXNG for local JSON API verification.
+services:
+  searxng:
+    image: docker.io/searxng/searxng@sha256:a98723bfb01fb3b8b18a9e33890184b91d270b3fb51f75875a0ad1908ce7b463
+    container_name: price-search-searxng
+    ports:
+      - "18888:8080"
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_BASE_URL: http://127.0.0.1:18888/
+    restart: unless-stopped

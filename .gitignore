@@ -1,0 +1,39 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.env
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+
+# Node / package manager caches
+.pnpm-store/
+node_modules/
+dist/
+
+# Runtime outputs
+logs/
+out/
+artifacts/
+.playwright/
+.playwright-cli/
+playwright/profile/
+.claude/skills
+.claude.json
+.claude/backups/
+.claude/plugins/
+.claude/projects/
+.claude/settings.local.json
+.npm/
+references/
+.price-search-web-api/
+config/price_search.local.toml
+
+# OS/editor noise
+.DS_Store
+
+PLANS.md
+AGENTS.md
+docs/
