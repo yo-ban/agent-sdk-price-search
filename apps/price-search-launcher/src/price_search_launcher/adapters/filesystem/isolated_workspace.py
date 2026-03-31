@@ -92,11 +92,19 @@ def discover_repository_root() -> Path:
     """この checkout の repository root を検出する。"""
     current_path = Path(__file__).resolve()
     for candidate in current_path.parents:
-        if (candidate / "pyproject.toml").exists() and (
-            candidate / "workspace_assets" / ".claude" / "skills"
-        ).exists():
+        if not (candidate / "pyproject.toml").exists():
+            continue
+        if _has_workspace_asset_markers(repository_root=candidate):
             return candidate
     raise RuntimeError("Could not locate the price-search repository root.")
+
+
+def _has_workspace_asset_markers(*, repository_root: Path) -> bool:
+    """launcher が temp workspace へ複写する asset 一式の存在を確認する。"""
+    return all(
+        (repository_root / source_relative_path).exists()
+        for source_relative_path, _destination_relative_path in _RUNTIME_ASSET_MAPPINGS
+    )
 
 
 def _make_executable_if_needed(*, path: Path) -> None:
