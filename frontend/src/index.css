@@ -33,6 +33,7 @@
   --radius: 8px;
   --radius-sm: 6px;
   --shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --timeline-detail-max-height: 300px;
 }
 
 *, *::before, *::after {
@@ -536,7 +537,7 @@ main {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 300px;
+  max-height: var(--timeline-detail-max-height);
   overflow-y: auto;
   color: var(--text-dim);
 }
@@ -544,6 +545,28 @@ main {
 .tl-event.expanded .tl-detail { display: block; }
 .tl-event.expanded .tl-snippet {
   display: none;
+}
+
+.tl-detail-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.tl-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tl-preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: calc(var(--timeline-detail-max-height) - 20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  object-fit: contain;
 }
 
 .tl-empty {

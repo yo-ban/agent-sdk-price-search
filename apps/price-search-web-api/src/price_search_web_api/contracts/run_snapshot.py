@@ -10,6 +10,14 @@ TimelineKind = Literal["system", "thinking", "tool", "text", "result", "error"]
 
 
 @dataclass(frozen=True)
+class TimelineImage:
+    """An image preview extracted from a timeline entry payload."""
+
+    src: str
+    media_type: str
+
+
+@dataclass(frozen=True)
 class TimelineEntry:
     """A timeline entry derived from the current JSONL log."""
 
@@ -17,6 +25,7 @@ class TimelineEntry:
     kind: TimelineKind
     label: str
     detail: str
+    images: tuple[TimelineImage, ...] = ()
 
 
 @dataclass(frozen=True)

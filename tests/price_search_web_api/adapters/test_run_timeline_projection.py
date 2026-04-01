@@ -72,6 +72,50 @@ def test_build_run_timeline_marks_skill_instruction_messages_as_system_entries()
     assert timeline[0].label == "Skill Instructions: playwright-cli-skill"
 
 
+def test_build_run_timeline_extracts_tool_result_images() -> None:
+    """Image blocks inside tool results should become previewable timeline images."""
+    timeline = build_run_timeline(
+        log_events=(
+            {
+                "logged_at": "2026-03-29T00:00:00+00:00",
+                "event_type": "user_message",
+                "payload": {
+                    "tool_use_result": {
+                        "type": "image",
+                        "file": {
+                            "base64": "AAAA",
+                            "type": "image/png",
+                            "originalSize": 191080,
+                        },
+                    },
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_image",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/png",
+                                        "data": "AAAA",
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                },
+            },
+        ),
+        started_at_ms=0,
+    )
+
+    assert timeline[0].detail == ""
+    assert len(timeline[0].images) == 1
+    assert timeline[0].images[0].media_type == "image/png"
+    assert timeline[0].images[0].src == "data:image/png;base64,AAAA"
+
+
 def test_build_run_timeline_uses_headings_for_assistant_text_labels() -> None:
     """Assistant markdown headings should become stable timeline labels."""
     timeline = build_run_timeline(

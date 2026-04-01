@@ -9,7 +9,7 @@ const START_RUN_TIMEOUT_MS = 30_000;
  * Start a new run through the launcher-backed API.
  */
 export async function startRun(values: SearchFormValues): Promise<RunData> {
-  return requestJson<RunData>(`${API_PREFIX}/runs`, {
+  return normalizeRunData(await requestJson<RunData>(`${API_PREFIX}/runs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -20,7 +20,7 @@ export async function startRun(values: SearchFormValues): Promise<RunData> {
       currency: values.currency,
       maxOffers: values.maxOffers,
     }),
-  }, START_RUN_TIMEOUT_MS);
+  }, START_RUN_TIMEOUT_MS));
 }
 
 /**
@@ -38,7 +38,7 @@ export async function cancelRun(runId: string): Promise<RunData | null> {
   if (!response.ok) {
     throw new Error(`run cancel failed: ${response.status}`);
   }
-  return (await response.json()) as RunData;
+  return normalizeRunData((await response.json()) as RunData);
 }
 
 /**
@@ -74,14 +74,16 @@ export async function getRun(runId: string): Promise<RunData | null> {
   if (!response.ok) {
     throw new Error(`run fetch failed: ${response.status}`);
   }
-  return (await response.json()) as RunData;
+  return normalizeRunData((await response.json()) as RunData);
 }
 
 /**
  * Load the available run history from the API.
  */
 export async function listRuns(): Promise<RunData[]> {
-  return requestJson<RunData[]>(`${API_PREFIX}/runs`, undefined, DEFAULT_TIMEOUT_MS);
+  return normalizeRunList(
+    await requestJson<RunData[]>(`${API_PREFIX}/runs`, undefined, DEFAULT_TIMEOUT_MS),
+  );
 }
 
 /**
@@ -137,4 +139,24 @@ function buildProductQuery(values: SearchFormValues): string {
     .map((value) => value.trim())
     .filter(Boolean)
     .join(" ");
+}
+
+/**
+ * Normalize one run payload so older API responses still satisfy the UI contract.
+ */
+function normalizeRunData(run: RunData): RunData {
+  return {
+    ...run,
+    timeline: (run.timeline ?? []).map((item) => ({
+      ...item,
+      images: item.images ?? [],
+    })),
+  };
+}
+
+/**
+ * Normalize the run list returned from the API.
+ */
+function normalizeRunList(runs: RunData[]): RunData[] {
+  return runs.map(normalizeRunData);
 }

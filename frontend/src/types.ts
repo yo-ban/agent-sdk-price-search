@@ -39,11 +39,17 @@ export type TimelineKind =
   | "result"
   | "error";
 
+export interface TimelineImage {
+  src: string;
+  media_type: string;
+}
+
 export interface TimelineItem {
   t: number;
   kind: TimelineKind;
   label: string;
   detail: string;
+  images?: TimelineImage[];
 }
 
 export interface RunData {

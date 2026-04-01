@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
+from price_search_web_api.adapters.run_timeline_media import extract_timeline_images
 from price_search_web_api.contracts.run_snapshot import TimelineEntry, TimelineKind
 
 
@@ -91,7 +92,8 @@ def _event_to_timeline_entries(
             tool_use_name_by_id=tool_use_name_by_id,
         )
         detail = _extract_user_message_text(payload.get("content"))
-        if not detail:
+        images = extract_timeline_images(payload.get("content"), payload.get("tool_use_result"))
+        if not detail and not images:
             detail = json.dumps(payload, ensure_ascii=False, indent=2)
         kind = classification["kind"]
         label = classification["label"]
@@ -104,6 +106,7 @@ def _event_to_timeline_entries(
                 kind=kind,
                 label=label,
                 detail=detail,
+                images=images,
             ),
         )
 
@@ -181,7 +184,7 @@ def _extract_user_message_text(content: Any) -> str:
                     continue
                 if inner.get("type") == "text":
                     parts.append(_string_field(inner, "text"))
-                else:
+                elif inner.get("type") not in {"image", "input_image"}:
                     parts.append(json.dumps(inner, ensure_ascii=False))
             continue
         if block_content is not None:

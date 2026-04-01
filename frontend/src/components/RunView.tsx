@@ -175,6 +175,10 @@ export function RunView({
               displayedItems.map((item, i) => {
                 const icon = TL_ICONS[item.kind] ?? { cls: "system", letter: "·" };
                 const expanded = expandedItems.has(i);
+                const images = item.images ?? [];
+                const detailSummary =
+                  item.detail || (images.length > 0 ? `画像 ${images.length}件` : "");
+                const hasDetail = Boolean(item.detail || images.length > 0);
                 return (
                   <div
                     key={i}
@@ -185,10 +189,25 @@ export function RunView({
                     <div className={`tl-icon ${icon.cls}`}>{icon.letter}</div>
                     <div className="tl-body">
                       <div className="tl-title">{item.label}</div>
-                      {item.detail && (
+                      {hasDetail && (
                         <>
-                          <div className="tl-snippet">{item.detail}</div>
-                          <div className="tl-detail">{item.detail}</div>
+                          <div className="tl-snippet">{detailSummary}</div>
+                          <div className="tl-detail">
+                            {item.detail && <div className="tl-detail-text">{item.detail}</div>}
+                            {images.length > 0 && (
+                              <div className="tl-preview-grid">
+                                {images.map((image, imageIndex) => (
+                                  <img
+                                    key={`${i}-${imageIndex}-${image.src}`}
+                                    className="tl-preview-image"
+                                    src={image.src}
+                                    alt={`${item.label} の画像プレビュー ${imageIndex + 1}`}
+                                    loading="lazy"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>
