@@ -11,6 +11,7 @@ from pathlib import Path
 from price_search_launcher.contracts.prepared_workspace import PreparedWorkspace
 
 _RUNTIME_ASSET_MAPPINGS = (
+    (Path("workspace_assets/bin/claude-code-wrapper"), Path("bin/claude-code-wrapper")),
     (Path("workspace_assets/bin/playwright-cli"), Path("bin/playwright-cli")),
     (Path("workspace_assets/bin/searxng-search"), Path("bin/searxng-search")),
     (Path("workspace_assets/bin/snapshot-inspect"), Path("bin/snapshot-inspect")),
@@ -109,7 +110,12 @@ def _has_workspace_asset_markers(*, repository_root: Path) -> bool:
 
 def _make_executable_if_needed(*, path: Path) -> None:
     """実行可能 script だけ owner execute bit を付与する。"""
-    if path.suffix or path.name not in {"playwright-cli", "searxng-search", "snapshot-inspect"}:
+    if path.suffix or path.name not in {
+        "claude-code-wrapper",
+        "playwright-cli",
+        "searxng-search",
+        "snapshot-inspect",
+    }:
         return
     current_mode = path.stat().st_mode
     path.chmod(current_mode | stat.S_IXUSR)

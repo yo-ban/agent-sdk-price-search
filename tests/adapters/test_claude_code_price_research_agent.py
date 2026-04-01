@@ -78,8 +78,14 @@ def test_research_builds_bedrock_sdk_options_and_logs_provider(
     assert options.model == config.primary_model
     assert options.fallback_model == config.small_model
     assert options.disallowed_tools == DISALLOWED_BUILT_IN_TOOLS
+    assert Path(options.cli_path) == (Path(config.workspace_root) / "bin" / "claude-code-wrapper")
     assert options.env["CLAUDE_CODE_USE_BEDROCK"]
-    assert not options.env["ANTHROPIC_API_KEY"]
+    assert "ANTHROPIC_API_KEY" not in options.env
+    assert "ANTHROPIC_AUTH_TOKEN" not in options.env
+    assert "ANTHROPIC_BASE_URL" not in options.env
+    assert "OPENROUTER_API_KEY" not in options.env
+    assert "ANTHROPIC_AUTH_TOKEN" in options.env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    assert "OPENROUTER_API_KEY" in options.env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert "PRICE_SEARCH_PLAYWRIGHT_USER_AGENT" not in options.env
     assert result.identified_product.name == structured_output["identified_product"]["name"]
     assert (
@@ -121,8 +127,14 @@ def test_research_passes_api_key_for_anthropic_provider(
 
     asyncio.run(adapter.research(query=query))
 
+    assert Path(captured["options"].cli_path) == (
+        Path(config.workspace_root) / "bin" / "claude-code-wrapper"
+    )
     assert captured["options"].env["ANTHROPIC_API_KEY"] == config.anthropic_api_key
-    assert not captured["options"].env["CLAUDE_CODE_USE_BEDROCK"]
+    assert "CLAUDE_CODE_USE_BEDROCK" not in captured["options"].env
+    assert "ANTHROPIC_AUTH_TOKEN" not in captured["options"].env
+    assert "ANTHROPIC_BASE_URL" not in captured["options"].env
+    assert "CLAUDE_CODE_USE_BEDROCK" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert captured["options"].env["ANTHROPIC_MODEL"] == config.primary_model
 
 
@@ -155,8 +167,16 @@ def test_research_uses_subscription_mode_without_forcing_provider_flags(
 
     asyncio.run(adapter.research(query=query))
 
-    assert not captured["options"].env["CLAUDE_CODE_USE_BEDROCK"]
-    assert not captured["options"].env["ANTHROPIC_API_KEY"]
+    assert Path(captured["options"].cli_path) == (
+        Path(config.workspace_root) / "bin" / "claude-code-wrapper"
+    )
+    assert "CLAUDE_CODE_USE_BEDROCK" not in captured["options"].env
+    assert "ANTHROPIC_API_KEY" not in captured["options"].env
+    assert "ANTHROPIC_AUTH_TOKEN" not in captured["options"].env
+    assert "ANTHROPIC_BASE_URL" not in captured["options"].env
+    assert "OPENROUTER_API_KEY" not in captured["options"].env
+    assert "ANTHROPIC_API_KEY" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    assert "CLAUDE_CODE_USE_BEDROCK" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert captured["options"].env["ANTHROPIC_MODEL"] == config.primary_model
 
 
@@ -190,10 +210,15 @@ def test_research_uses_openrouter_anthropic_compatible_env(
 
     asyncio.run(adapter.research(query=query))
 
+    assert Path(captured["options"].cli_path) == (
+        Path(config.workspace_root) / "bin" / "claude-code-wrapper"
+    )
     assert captured["options"].env["OPENROUTER_API_KEY"] == config.openrouter_api_key
     assert captured["options"].env["ANTHROPIC_AUTH_TOKEN"] == config.openrouter_api_key
     assert captured["options"].env["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
-    assert not captured["options"].env["ANTHROPIC_API_KEY"]
+    assert "ANTHROPIC_API_KEY" not in captured["options"].env
+    assert "CLAUDE_CODE_USE_BEDROCK" not in captured["options"].env
+    assert "ANTHROPIC_API_KEY" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
 
 
 def _build_config(

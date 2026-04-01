@@ -160,6 +160,7 @@ def _build_options(
     research_prompt: PriceResearchPrompt,
 ) -> ClaudeAgentOptions:
     """価格調査ユースケース用の Claude Agent SDK オプションを構築する。"""
+    workspace_root = Path(config.workspace_root).resolve()
     return ClaudeAgentOptions(
         model=config.primary_model,
         thinking=_build_thinking_config(config=config),
@@ -183,6 +184,7 @@ def _build_options(
         max_turns=config.max_turns,
         setting_sources=["project"],
         add_dirs=[Path.home()],
+        cli_path=workspace_root / "bin" / "claude-code-wrapper",
         env=build_claude_code_env(config=config),
         output_format={
             "type": "json_schema",

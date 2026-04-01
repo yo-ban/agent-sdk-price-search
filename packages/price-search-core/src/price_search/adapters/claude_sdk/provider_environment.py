@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 from price_search.config import AppConfig
 
-_PROVIDER_RESET_ENV = {
-    "ANTHROPIC_API_KEY": "",
-    "ANTHROPIC_AUTH_TOKEN": "",
-    "ANTHROPIC_BASE_URL": "",
-    "CLAUDE_CODE_USE_AZURE": "",
-    "CLAUDE_CODE_USE_BEDROCK": "",
-    "CLAUDE_CODE_USE_VERTEX": "",
-    "OPENROUTER_API_KEY": "",
-}
+_PROVIDER_RESET_ENV_NAMES = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "CLAUDE_CODE_USE_AZURE",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "OPENROUTER_API_KEY",
+)
 
 
 def build_claude_code_env(*, config: AppConfig) -> dict[str, str]:
@@ -28,12 +29,13 @@ def build_claude_code_env(*, config: AppConfig) -> dict[str, str]:
         path_value = f"{path_value}:{current_path}"
 
     shared_env = {
-        **_PROVIDER_RESET_ENV,
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
         "ANTHROPIC_MODEL": config.primary_model,
         "ANTHROPIC_DEFAULT_SONNET_MODEL": config.primary_model,
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": config.small_model,
         "PATH": path_value,
+        "PRICE_SEARCH_CLAUDE_REAL_CLI_PATH": _discover_claude_cli_path(),
+        "PRICE_SEARCH_CLAUDE_UNSET_ENV": ",".join(_provider_reset_env_names(config=config)),
         "PRICE_SEARCH_SEARXNG_SEARCH_URL": config.searxng_search_url,
         "PRICE_SEARCH_SEARXNG_ENGINES": ",".join(config.searxng_engines),
         "PRICE_SEARCH_SEARXNG_LANGUAGE": config.searxng_language,
@@ -44,6 +46,55 @@ def build_claude_code_env(*, config: AppConfig) -> dict[str, str]:
         **shared_env,
         **_provider_specific_env(config=config),
     }
+
+
+def _provider_reset_env_names(*, config: AppConfig) -> tuple[str, ...]:
+    """選択 provider に不要な認証・切替 env 名を返す。"""
+    if config.claude_provider == "bedrock":
+        return (
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+            "ANTHROPIC_BASE_URL",
+            "CLAUDE_CODE_USE_AZURE",
+            "CLAUDE_CODE_USE_VERTEX",
+            "OPENROUTER_API_KEY",
+        )
+    if config.claude_provider == "anthropic":
+        return (
+            "ANTHROPIC_AUTH_TOKEN",
+            "ANTHROPIC_BASE_URL",
+            "CLAUDE_CODE_USE_AZURE",
+            "CLAUDE_CODE_USE_BEDROCK",
+            "CLAUDE_CODE_USE_VERTEX",
+            "OPENROUTER_API_KEY",
+        )
+    if config.claude_provider == "openrouter":
+        return (
+            "ANTHROPIC_API_KEY",
+            "CLAUDE_CODE_USE_AZURE",
+            "CLAUDE_CODE_USE_BEDROCK",
+            "CLAUDE_CODE_USE_VERTEX",
+        )
+    return _PROVIDER_RESET_ENV_NAMES
+
+
+def _discover_claude_cli_path() -> str:
+    """Claude Code CLI 実体の代表的な探索結果を返す。"""
+    if cli_path := shutil.which("claude"):
+        return cli_path
+
+    candidate_paths = (
+        Path.home() / ".npm-global/bin/claude",
+        Path("/usr/local/bin/claude"),
+        Path.home() / ".local/bin/claude",
+        Path.home() / "node_modules/.bin/claude",
+        Path.home() / ".yarn/bin/claude",
+        Path.home() / ".claude/local/claude",
+    )
+    for candidate_path in candidate_paths:
+        if candidate_path.exists() and candidate_path.is_file():
+            return str(candidate_path)
+    return "claude"
 
 
 def _provider_specific_env(*, config: AppConfig) -> dict[str, str]:

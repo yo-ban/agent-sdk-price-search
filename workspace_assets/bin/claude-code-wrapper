@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Launch Claude Code after removing provider env vars that must not leak
+# from the parent process into this run.
+
+set -euo pipefail
+
+unset_provider_env() {
+  local unset_list="${PRICE_SEARCH_CLAUDE_UNSET_ENV:-}"
+  local env_name
+  IFS=',' read -r -a env_names <<< "${unset_list}"
+  for env_name in "${env_names[@]}"; do
+    if [ -n "${env_name}" ]; then
+      unset "${env_name}"
+    fi
+  done
+}
+
+unset_provider_env
+CLAUDE_BIN="${PRICE_SEARCH_CLAUDE_REAL_CLI_PATH:-}"
+if [ -z "${CLAUDE_BIN}" ] || [ ! -x "${CLAUDE_BIN}" ]; then
+  printf '%s\n' "Claude Code CLI not found" >&2
+  exit 1
+fi
+
+exec "${CLAUDE_BIN}" "$@"
