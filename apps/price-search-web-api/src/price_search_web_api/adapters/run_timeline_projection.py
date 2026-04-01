@@ -146,7 +146,7 @@ def _assistant_block_to_entry(*, block: dict[str, Any], t: int) -> TimelineEntry
         return TimelineEntry(
             t=t,
             kind="tool",
-            label=f"Tool: {_string_field(block, 'name')}",
+            label=_tool_use_label(block),
             detail=json.dumps(block.get("input", {}), ensure_ascii=False, indent=2),
         )
     return TimelineEntry(
@@ -191,6 +191,19 @@ def _extract_user_message_text(content: Any) -> str:
             parts.append(json.dumps(block_content, ensure_ascii=False, indent=2))
 
     return "\n".join(part for part in parts if part).strip()
+
+
+def _tool_use_label(block: dict[str, Any]) -> str:
+    """Build a readable tool label with the optional input description."""
+    tool_name = _string_field(block, "name")
+    tool_input = block.get("input")
+    if not isinstance(tool_input, dict):
+        return f"Tool: {tool_name}"
+
+    description = _string_field(tool_input, "description")
+    if not description:
+        return f"Tool: {tool_name}"
+    return f"Tool: {tool_name} ({description})"
 
 
 def _build_tool_use_name_index(events: tuple[dict[str, Any], ...]) -> dict[str, str]:

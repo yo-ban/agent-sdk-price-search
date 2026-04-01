@@ -116,6 +116,59 @@ def test_build_run_timeline_extracts_tool_result_images() -> None:
     assert timeline[0].images[0].src == "data:image/png;base64,AAAA"
 
 
+def test_build_run_timeline_includes_tool_description_in_tool_label() -> None:
+    """Tool timeline labels should include the input description when present."""
+    timeline = build_run_timeline(
+        log_events=(
+            {
+                "logged_at": "2026-03-29T00:00:00+00:00",
+                "event_type": "assistant_message",
+                "payload": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_query",
+                            "name": "Bash",
+                            "input": {
+                                "command": "searxng-search ...",
+                                "description": "Search for dynabook W6GZ83PRLB price in Japan",
+                            },
+                        }
+                    ]
+                },
+            },
+        ),
+        started_at_ms=0,
+    )
+
+    assert timeline[0].label == "Tool: Bash (Search for dynabook W6GZ83PRLB price in Japan)"
+
+
+def test_build_run_timeline_keeps_plain_tool_label_without_description() -> None:
+    """Tool labels should stay backward compatible when description is absent."""
+    timeline = build_run_timeline(
+        log_events=(
+            {
+                "logged_at": "2026-03-29T00:00:00+00:00",
+                "event_type": "assistant_message",
+                "payload": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_query",
+                            "name": "Bash",
+                            "input": {"command": "searxng-search ..."},
+                        }
+                    ]
+                },
+            },
+        ),
+        started_at_ms=0,
+    )
+
+    assert timeline[0].label == "Tool: Bash"
+
+
 def test_build_run_timeline_uses_headings_for_assistant_text_labels() -> None:
     """Assistant markdown headings should become stable timeline labels."""
     timeline = build_run_timeline(
