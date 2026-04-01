@@ -26,7 +26,6 @@ from price_search.adapters.claude_sdk.research_validation_hooks import (
     build_post_tool_use_hooks,
     build_pre_tool_use_hooks,
 )
-from price_search.adapters.claude_sdk.sdk_runtime_patches import apply_runtime_patches
 from price_search.adapters.claude_sdk.structured_output import (
     build_structured_output_schema,
     raw_identified_product_from_payload,
@@ -42,8 +41,6 @@ from price_search.ports.price_research_agent_port import (
     PriceResearchAgentPort,
     RawResearchResult,
 )
-
-apply_runtime_patches()
 
 LOGGER = logging.getLogger(__name__)
 

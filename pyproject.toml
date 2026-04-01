@@ -27,6 +27,11 @@ name = "flatt"
 url = "https://pypi.flatt.tech/simple/"
 default = true
 
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+explicit = true
+
 [tool.uv.workspace]
 members = [
   "packages/price-search-core",
@@ -42,6 +47,7 @@ price-search-launcher = { workspace = true }
 price-search-web-api = { workspace = true }
 searxng-search-cli = { workspace = true }
 snapshot-inspect-cli = { workspace = true }
+claude-agent-sdk = { index = "pypi" }
 
 [tool.pytest.ini_options]
 pythonpath = [
