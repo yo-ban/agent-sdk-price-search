@@ -11,7 +11,9 @@ small_model = "claude-haiku-4-5"
 # [claude]
 # provider = "bedrock" # `bedrock` / `anthropic` / `subscription` / `openrouter`
 # primary_model = "global.anthropic.claude-sonnet-4-6"
+# primary_model_capabilities = "effort,max_effort,thinking,adaptive_thinking,interleaved_thinking"
 # small_model = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+# small_model_capabilities = "max_effort,thinking"
 #
 # [aws]
 # region = "ap-northeast-1"

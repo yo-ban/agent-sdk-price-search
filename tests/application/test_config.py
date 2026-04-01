@@ -19,6 +19,8 @@ class ConfigExpectation:
     claude_provider: str
     primary_model: str
     small_model: str
+    primary_model_capabilities: str | None
+    small_model_capabilities: str | None
     max_turns: int
     max_offers: int
 
@@ -29,6 +31,8 @@ def test_load_config_uses_file_config_when_env_is_absent(monkeypatch) -> None:
         claude_provider="subscription",
         primary_model="claude-sonnet-4-6",
         small_model="claude-haiku-4-5",
+        primary_model_capabilities="tool-use,reasoning",
+        small_model_capabilities="tool-use",
         max_turns=12,
         max_offers=2,
     )
@@ -41,6 +45,8 @@ def test_load_config_uses_file_config_when_env_is_absent(monkeypatch) -> None:
         claude_provider=file_config.claude.provider,
         primary_model=file_config.claude.primary_model,
         small_model=file_config.claude.small_model,
+        primary_model_capabilities=file_config.claude.primary_model_capabilities,
+        small_model_capabilities=file_config.claude.small_model_capabilities,
         max_turns=file_config.agent.max_turns,
         max_offers=file_config.agent.max_offers,
     )
@@ -55,6 +61,7 @@ def test_load_file_config_prefers_local_values_over_shared_values(monkeypatch) -
             "provider": "bedrock",
             "primary_model": "global.anthropic.claude-sonnet-4-6",
             "small_model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "primary_model_capabilities": "tool-use,reasoning",
         }
     }
     local_raw = {
@@ -62,6 +69,7 @@ def test_load_file_config_prefers_local_values_over_shared_values(monkeypatch) -
             "provider": "anthropic",
             "primary_model": "claude-sonnet-4-6",
             "small_model": "claude-haiku-4-5",
+            "small_model_capabilities": "tool-use",
         }
     }
     monkeypatch.setattr(
@@ -83,6 +91,8 @@ def test_load_file_config_prefers_local_values_over_shared_values(monkeypatch) -
         claude_provider=local_raw["claude"]["provider"],
         primary_model=local_raw["claude"]["primary_model"],
         small_model=local_raw["claude"]["small_model"],
+        primary_model_capabilities=shared_raw["claude"]["primary_model_capabilities"],
+        small_model_capabilities=local_raw["claude"]["small_model_capabilities"],
     )
 
 
@@ -160,6 +170,7 @@ def test_load_config_prefers_environment_over_file_config(monkeypatch) -> None:
         "PRICE_SEARCH_CLAUDE_PROVIDER": "bedrock",
         "PRICE_SEARCH_MODEL": "global.anthropic.claude-sonnet-4-6",
         "PRICE_SEARCH_SMALL_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "PRICE_SEARCH_PRIMARY_MODEL_CAPABILITIES": "tool-use,reasoning",
     }
     monkeypatch.setattr(runtime_config, "load_file_config", lambda: file_config)
     _clear_runtime_env(monkeypatch=monkeypatch)
@@ -172,6 +183,8 @@ def test_load_config_prefers_environment_over_file_config(monkeypatch) -> None:
         claude_provider=env_values["PRICE_SEARCH_CLAUDE_PROVIDER"],
         primary_model=env_values["PRICE_SEARCH_MODEL"],
         small_model=env_values["PRICE_SEARCH_SMALL_MODEL"],
+        primary_model_capabilities=env_values["PRICE_SEARCH_PRIMARY_MODEL_CAPABILITIES"],
+        small_model_capabilities=file_config.claude.small_model_capabilities,
         max_turns=file_config.agent.max_turns,
         max_offers=file_config.agent.max_offers,
     )
@@ -241,6 +254,8 @@ def _build_file_config(
     openrouter_api_key: str | None = None,
     primary_model: str | None,
     small_model: str | None,
+    primary_model_capabilities: str | None = None,
+    small_model_capabilities: str | None = None,
     max_turns: int = 999,
     max_offers: int = 3,
 ) -> FileConfig:
@@ -252,6 +267,8 @@ def _build_file_config(
             openrouter_api_key=openrouter_api_key,
             primary_model=primary_model,
             small_model=small_model,
+            primary_model_capabilities=primary_model_capabilities,
+            small_model_capabilities=small_model_capabilities,
         ),
         agent=AgentFileConfig(
             max_turns=max_turns,
@@ -266,6 +283,8 @@ def _runtime_projection(config: runtime_config.AppConfig) -> ConfigExpectation:
         claude_provider=config.claude_provider,
         primary_model=config.primary_model,
         small_model=config.small_model,
+        primary_model_capabilities=config.primary_model_capabilities,
+        small_model_capabilities=config.small_model_capabilities,
         max_turns=config.max_turns,
         max_offers=config.max_offers,
     )
@@ -277,6 +296,8 @@ def _file_projection(file_config: FileConfig) -> ConfigExpectation:
         claude_provider=file_config.claude.provider,
         primary_model=file_config.claude.primary_model,
         small_model=file_config.claude.small_model,
+        primary_model_capabilities=file_config.claude.primary_model_capabilities,
+        small_model_capabilities=file_config.claude.small_model_capabilities,
         max_turns=file_config.agent.max_turns,
         max_offers=file_config.agent.max_offers,
     )
@@ -287,6 +308,8 @@ def _expected_projection(
     claude_provider: str | None,
     primary_model: str | None,
     small_model: str | None,
+    primary_model_capabilities: str | None = None,
+    small_model_capabilities: str | None = None,
     max_turns: int | None = runtime_config.DEFAULT_MAX_TURNS,
     max_offers: int | None = runtime_config.DEFAULT_MAX_OFFERS,
 ) -> ConfigExpectation:
@@ -295,6 +318,8 @@ def _expected_projection(
         claude_provider=claude_provider or runtime_config.DEFAULT_CLAUDE_PROVIDER,
         primary_model=primary_model or "",
         small_model=small_model or "",
+        primary_model_capabilities=primary_model_capabilities,
+        small_model_capabilities=small_model_capabilities,
         max_turns=max_turns if max_turns is not None else runtime_config.DEFAULT_MAX_TURNS,
         max_offers=(
             max_offers if max_offers is not None else runtime_config.DEFAULT_MAX_OFFERS
@@ -308,6 +333,8 @@ def _clear_runtime_env(*, monkeypatch) -> None:
         "PRICE_SEARCH_CLAUDE_PROVIDER",
         "PRICE_SEARCH_MODEL",
         "PRICE_SEARCH_SMALL_MODEL",
+        "PRICE_SEARCH_PRIMARY_MODEL_CAPABILITIES",
+        "PRICE_SEARCH_SMALL_MODEL_CAPABILITIES",
         "ANTHROPIC_API_KEY",
         "OPENROUTER_API_KEY",
     ):

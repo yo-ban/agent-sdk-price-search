@@ -24,6 +24,8 @@ class ClaudeFileConfig:
     openrouter_api_key: str | None = None
     primary_model: str | None = None
     small_model: str | None = None
+    primary_model_capabilities: str | None = None
+    small_model_capabilities: str | None = None
 
 
 @dataclass(frozen=True)
@@ -174,6 +176,8 @@ def _parse_file_config(raw: dict[str, Any]) -> FileConfig:
             "openrouter_api_key",
             "primary_model",
             "small_model",
+            "primary_model_capabilities",
+            "small_model_capabilities",
         },
     )
     _validate_keys(aws_table, "aws", {"region", "profile"})
@@ -198,6 +202,12 @@ def _parse_file_config(raw: dict[str, Any]) -> FileConfig:
             openrouter_api_key=_read_optional_str(claude_table, "openrouter_api_key"),
             primary_model=_read_optional_str(claude_table, "primary_model"),
             small_model=_read_optional_str(claude_table, "small_model"),
+            primary_model_capabilities=_read_optional_str(
+                claude_table, "primary_model_capabilities"
+            ),
+            small_model_capabilities=_read_optional_str(
+                claude_table, "small_model_capabilities"
+            ),
         ),
         aws=AwsFileConfig(
             region=_read_optional_str(aws_table, "region"),

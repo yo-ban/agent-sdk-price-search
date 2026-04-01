@@ -43,7 +43,11 @@ def test_research_builds_bedrock_sdk_options_and_logs_provider(
     tmp_path: Path,
 ) -> None:
     """Research should pass provider-aware Bedrock options through the public adapter API."""
-    config = _build_config(tmp_path)
+    config = _build_config(
+        tmp_path,
+        primary_model_capabilities="tool-use,reasoning",
+        small_model_capabilities="tool-use",
+    )
     query = _build_query()
     structured_output = _structured_output_payload(query=query)
     tool_name = "Bash"
@@ -86,6 +90,22 @@ def test_research_builds_bedrock_sdk_options_and_logs_provider(
     assert "OPENROUTER_API_KEY" not in options.env
     assert "ANTHROPIC_AUTH_TOKEN" in options.env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert "OPENROUTER_API_KEY" in options.env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    assert (
+        options.env["ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"]
+        == config.primary_model_capabilities
+    )
+    assert (
+        options.env["ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"]
+        == config.small_model_capabilities
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        not in options.env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        not in options.env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
     assert "PRICE_SEARCH_PLAYWRIGHT_USER_AGENT" not in options.env
     assert result.identified_product.name == structured_output["identified_product"]["name"]
     assert (
@@ -134,6 +154,22 @@ def test_research_passes_api_key_for_anthropic_provider(
     assert "CLAUDE_CODE_USE_BEDROCK" not in captured["options"].env
     assert "ANTHROPIC_AUTH_TOKEN" not in captured["options"].env
     assert "ANTHROPIC_BASE_URL" not in captured["options"].env
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        not in captured["options"].env
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        not in captured["options"].env
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
     assert "CLAUDE_CODE_USE_BEDROCK" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert captured["options"].env["ANTHROPIC_MODEL"] == config.primary_model
 
@@ -175,6 +211,22 @@ def test_research_uses_subscription_mode_without_forcing_provider_flags(
     assert "ANTHROPIC_AUTH_TOKEN" not in captured["options"].env
     assert "ANTHROPIC_BASE_URL" not in captured["options"].env
     assert "OPENROUTER_API_KEY" not in captured["options"].env
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        not in captured["options"].env
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        not in captured["options"].env
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
     assert "ANTHROPIC_API_KEY" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert "CLAUDE_CODE_USE_BEDROCK" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
     assert captured["options"].env["ANTHROPIC_MODEL"] == config.primary_model
@@ -218,6 +270,22 @@ def test_research_uses_openrouter_anthropic_compatible_env(
     assert captured["options"].env["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"
     assert "ANTHROPIC_API_KEY" not in captured["options"].env
     assert "CLAUDE_CODE_USE_BEDROCK" not in captured["options"].env
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        not in captured["options"].env
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        not in captured["options"].env
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"
+        in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
+    assert (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"
+        in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
+    )
     assert "ANTHROPIC_API_KEY" in captured["options"].env["PRICE_SEARCH_CLAUDE_UNSET_ENV"]
 
 
@@ -229,6 +297,8 @@ def _build_config(
     openrouter_api_key: str | None = None,
     primary_model: str = "global.anthropic.claude-sonnet-4-6",
     small_model: str = "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    primary_model_capabilities: str | None = None,
+    small_model_capabilities: str | None = None,
 ) -> AppConfig:
     """Create a representative runtime config for adapter tests."""
     workspace_root = tmp_path / "workspace"
@@ -241,6 +311,8 @@ def _build_config(
         openrouter_api_key=openrouter_api_key,
         primary_model=primary_model,
         small_model=small_model,
+        primary_model_capabilities=primary_model_capabilities,
+        small_model_capabilities=small_model_capabilities,
         agent_thinking_type="enabled",
         agent_thinking_budget_tokens=4096,
         agent_effort="high",

@@ -54,6 +54,8 @@ class AppConfig:
     openrouter_api_key: str | None
     primary_model: str
     small_model: str
+    primary_model_capabilities: str | None
+    small_model_capabilities: str | None
     agent_thinking_type: Literal["enabled", "adaptive", "disabled"]
     agent_thinking_budget_tokens: int
     agent_effort: Literal["low", "medium", "high", "max"]
@@ -112,6 +114,14 @@ def load_config() -> AppConfig:
             env_name="PRICE_SEARCH_SMALL_MODEL",
             file_value=file_config.claude.small_model,
             default=small_model_default,
+        ),
+        primary_model_capabilities=_resolve_optional_str(
+            env_name="PRICE_SEARCH_PRIMARY_MODEL_CAPABILITIES",
+            file_value=file_config.claude.primary_model_capabilities,
+        ),
+        small_model_capabilities=_resolve_optional_str(
+            env_name="PRICE_SEARCH_SMALL_MODEL_CAPABILITIES",
+            file_value=file_config.claude.small_model_capabilities,
         ),
         agent_thinking_type=_parse_thinking_type(
             _resolve_str(

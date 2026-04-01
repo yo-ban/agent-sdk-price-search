@@ -21,6 +21,8 @@ def test_claude_code_wrapper_unsets_provider_env_before_exec(tmp_path: Path) -> 
                 "    'ANTHROPIC_API_KEY',",
                 "    'ANTHROPIC_AUTH_TOKEN',",
                 "    'ANTHROPIC_BASE_URL',",
+                "    'ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES',",
+                "    'ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES',",
                 "    'OPENROUTER_API_KEY',",
                 "    'CLAUDE_CODE_USE_BEDROCK',",
                 "]",
@@ -42,11 +44,16 @@ def test_claude_code_wrapper_unsets_provider_env_before_exec(tmp_path: Path) -> 
         **os.environ,
         "PRICE_SEARCH_CLAUDE_REAL_CLI_PATH": str(fake_claude_path),
         "PRICE_SEARCH_CLAUDE_UNSET_ENV": (
-            "ANTHROPIC_API_KEY,ANTHROPIC_AUTH_TOKEN,ANTHROPIC_BASE_URL,OPENROUTER_API_KEY"
+            "ANTHROPIC_API_KEY,ANTHROPIC_AUTH_TOKEN,ANTHROPIC_BASE_URL,"
+            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES,"
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES,"
+            "OPENROUTER_API_KEY"
         ),
         "ANTHROPIC_API_KEY": "anthropic-key",
         "ANTHROPIC_AUTH_TOKEN": "auth-token",
         "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES": "tool-use,thinking",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES": "tool-use",
         "OPENROUTER_API_KEY": "openrouter-key",
         "CLAUDE_CODE_USE_BEDROCK": "1",
     }
@@ -63,5 +70,7 @@ def test_claude_code_wrapper_unsets_provider_env_before_exec(tmp_path: Path) -> 
     assert observed_env["ANTHROPIC_API_KEY"] is None
     assert observed_env["ANTHROPIC_AUTH_TOKEN"] is None
     assert observed_env["ANTHROPIC_BASE_URL"] is None
+    assert observed_env["ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"] is None
+    assert observed_env["ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"] is None
     assert observed_env["OPENROUTER_API_KEY"] is None
     assert observed_env["CLAUDE_CODE_USE_BEDROCK"] == "1"

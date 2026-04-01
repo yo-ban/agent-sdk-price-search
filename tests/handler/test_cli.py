@@ -95,6 +95,8 @@ def _build_config(tmp_path: Path) -> AppConfig:
         openrouter_api_key=None,
         primary_model="claude-sonnet-4-6",
         small_model="claude-haiku-4-5",
+        primary_model_capabilities=None,
+        small_model_capabilities=None,
         agent_thinking_type="enabled",
         agent_thinking_budget_tokens=4096,
         agent_effort="high",

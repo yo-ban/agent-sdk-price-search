@@ -12,6 +12,8 @@ _PROVIDER_RESET_ENV_NAMES = (
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
     "CLAUDE_CODE_USE_AZURE",
     "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX",
@@ -50,6 +52,7 @@ def build_claude_code_env(*, config: AppConfig) -> dict[str, str]:
 
 def _provider_reset_env_names(*, config: AppConfig) -> tuple[str, ...]:
     """選択 provider に不要な認証・切替 env 名を返す。"""
+    bedrock_capability_resets = _bedrock_capability_reset_env_names(config=config)
     if config.claude_provider == "bedrock":
         return (
             "ANTHROPIC_API_KEY",
@@ -58,11 +61,14 @@ def _provider_reset_env_names(*, config: AppConfig) -> tuple[str, ...]:
             "CLAUDE_CODE_USE_AZURE",
             "CLAUDE_CODE_USE_VERTEX",
             "OPENROUTER_API_KEY",
+            *bedrock_capability_resets,
         )
     if config.claude_provider == "anthropic":
         return (
             "ANTHROPIC_AUTH_TOKEN",
             "ANTHROPIC_BASE_URL",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
             "CLAUDE_CODE_USE_AZURE",
             "CLAUDE_CODE_USE_BEDROCK",
             "CLAUDE_CODE_USE_VERTEX",
@@ -71,11 +77,23 @@ def _provider_reset_env_names(*, config: AppConfig) -> tuple[str, ...]:
     if config.claude_provider == "openrouter":
         return (
             "ANTHROPIC_API_KEY",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
             "CLAUDE_CODE_USE_AZURE",
             "CLAUDE_CODE_USE_BEDROCK",
             "CLAUDE_CODE_USE_VERTEX",
         )
     return _PROVIDER_RESET_ENV_NAMES
+
+
+def _bedrock_capability_reset_env_names(*, config: AppConfig) -> tuple[str, ...]:
+    """Bedrock で明示設定されていない capability env 名だけを返す。"""
+    env_names: list[str] = []
+    if config.primary_model_capabilities is None:
+        env_names.append("ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES")
+    if config.small_model_capabilities is None:
+        env_names.append("ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES")
+    return tuple(env_names)
 
 
 def _discover_claude_cli_path() -> str:
@@ -100,11 +118,20 @@ def _discover_claude_cli_path() -> str:
 def _provider_specific_env(*, config: AppConfig) -> dict[str, str]:
     """選択された Claude provider に必要な認証系環境変数だけを返す。"""
     if config.claude_provider == "bedrock":
-        return {
+        env = {
             "CLAUDE_CODE_USE_BEDROCK": "1",
             "AWS_REGION": config.aws_region,
             "AWS_PROFILE": config.aws_profile,
         }
+        if config.primary_model_capabilities is not None:
+            env["ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES"] = (
+                config.primary_model_capabilities
+            )
+        if config.small_model_capabilities is not None:
+            env["ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES"] = (
+                config.small_model_capabilities
+            )
+        return env
     if config.claude_provider == "anthropic":
         if config.anthropic_api_key is None:
             raise ValueError(
