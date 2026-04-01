@@ -34,6 +34,7 @@
   --radius-sm: 6px;
   --shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
   --timeline-detail-max-height: 300px;
+  --timeline-max-height: 520px;
 }
 
 *, *::before, *::after {
@@ -442,7 +443,7 @@ main {
 }
 
 .timeline {
-  max-height: 520px;
+  max-height: var(--timeline-max-height);
   overflow-y: auto;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 import type { RunData, RunStatus, TimelineItem } from "../types";
 import {
   RUN_STATUS_LABELS,
@@ -45,6 +45,8 @@ export function RunView({
   );
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const tlRef = useRef<HTMLDivElement>(null);
+  const timelineWrapRef = useRef<HTMLDivElement>(null);
+  const [timelineMaxHeight, setTimelineMaxHeight] = useState<number | null>(null);
 
   const displayedItems = instant ? run.timeline : items;
   const isReplaying = instant ? run.status === "researching" : idx < run.timeline.length;
@@ -71,6 +73,50 @@ export function RunView({
     const el = tlRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [displayedItems.length, isReplaying]);
+
+  const syncTimelineHeight = useEffectEvent(() => {
+    if (activeTab !== "timeline") return;
+    const wrap = timelineWrapRef.current;
+    if (!wrap) return;
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const visualBottomGap = 24;
+    const minimumTimelineHeight = 280;
+    const main = wrap.closest("main");
+    const mainPaddingBottom = main
+      ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) || 0
+      : 0;
+    const nextHeight = Math.max(
+      minimumTimelineHeight,
+      Math.floor(
+        viewportHeight
+          - wrap.getBoundingClientRect().top
+          - visualBottomGap
+          - mainPaddingBottom,
+      ),
+    );
+    setTimelineMaxHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+  });
+
+  // Keep the timeline scroller sized to the remaining viewport height.
+  useEffect(() => {
+    if (activeTab !== "timeline") return;
+
+    syncTimelineHeight();
+    const handleViewportChange = () => syncTimelineHeight();
+    const viewport = window.visualViewport;
+
+    window.addEventListener("resize", handleViewportChange);
+    viewport?.addEventListener("resize", handleViewportChange);
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      viewport?.removeEventListener("resize", handleViewportChange);
+    };
+  }, [activeTab, syncTimelineHeight]);
+
+  useEffect(() => {
+    syncTimelineHeight();
+  });
 
   // Switch to Summary tab when replay finishes with a result
   const handleComplete = useEffectEvent(() => setActiveTab("summary"));
@@ -167,7 +213,17 @@ export function RunView({
       )}
 
       {activeTab === "timeline" && (
-        <div className="timeline-wrap">
+        <div
+          className="timeline-wrap"
+          ref={timelineWrapRef}
+          style={
+            {
+              "--timeline-max-height": timelineMaxHeight
+                ? `${timelineMaxHeight}px`
+                : undefined,
+            } as CSSProperties
+          }
+        >
           <div className="timeline" ref={tlRef}>
             {displayedItems.length === 0 ? (
               <div className="tl-empty">調査を開始しています...</div>
