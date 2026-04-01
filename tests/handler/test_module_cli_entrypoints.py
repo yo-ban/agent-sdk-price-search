@@ -1,4 +1,4 @@
-"""CLI module execution tests."""
+"""Smoke tests for public CLI module entrypoints."""
 
 from __future__ import annotations
 

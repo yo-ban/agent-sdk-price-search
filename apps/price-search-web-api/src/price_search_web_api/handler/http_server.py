@@ -10,11 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
-from price_search_web_api.application.cancel_run import CancelRunUseCase
-from price_search_web_api.application.delete_run import DeleteRunUseCase
-from price_search_web_api.application.get_run import GetRunUseCase
-from price_search_web_api.application.list_runs import ListRunsUseCase
-from price_search_web_api.application.start_run import StartRunUseCase
+from price_search_web_api.application.run_application_service import RunApplicationService
 from price_search_web_api.bootstrap import build_application
 from price_search_web_api.config import load_config
 from price_search_web_api.contracts.create_run_request import CreateRunRequest
@@ -31,19 +27,11 @@ class PriceSearchApiServer(ThreadingHTTPServer):
         server_address: tuple[str, int],
         request_handler_class: type[BaseHTTPRequestHandler],
         *,
-        start_run_use_case: StartRunUseCase,
-        get_run_use_case: GetRunUseCase,
-        list_runs_use_case: ListRunsUseCase,
-        cancel_run_use_case: CancelRunUseCase,
-        delete_run_use_case: DeleteRunUseCase,
+        run_service: RunApplicationService,
     ) -> None:
-        """Store use case dependencies on the server instance."""
+        """Store application service dependencies on the server instance."""
         super().__init__(server_address, request_handler_class)
-        self.start_run_use_case = start_run_use_case
-        self.get_run_use_case = get_run_use_case
-        self.list_runs_use_case = list_runs_use_case
-        self.cancel_run_use_case = cancel_run_use_case
-        self.delete_run_use_case = delete_run_use_case
+        self.run_service = run_service
 
 
 class PriceSearchApiHandler(BaseHTTPRequestHandler):
@@ -57,12 +45,12 @@ class PriceSearchApiHandler(BaseHTTPRequestHandler):
             self._write_json(HTTPStatus.OK, {"ok": True})
             return
         if parsed.path == "/api/runs":
-            payload = [asdict(run) for run in server.list_runs_use_case.execute()]
+            payload = [asdict(run) for run in server.run_service.list_runs()]
             self._write_json(HTTPStatus.OK, payload)
             return
         if parsed.path.startswith("/api/runs/"):
             run_id = parsed.path.removeprefix("/api/runs/")
-            snapshot = server.get_run_use_case.execute(run_id)
+            snapshot = server.run_service.get_run(run_id)
             if snapshot is None:
                 self._write_json(HTTPStatus.NOT_FOUND, {"error": "run_not_found"})
                 return
@@ -76,7 +64,7 @@ class PriceSearchApiHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/runs/") and parsed.path.endswith("/cancel"):
             run_id = parsed.path.removesuffix("/cancel").removeprefix("/api/runs/")
-            snapshot = server.cancel_run_use_case.execute(run_id)
+            snapshot = server.run_service.cancel_run(run_id)
             if snapshot is None:
                 self._write_json(HTTPStatus.NOT_FOUND, {"error": "run_not_found"})
                 return
@@ -99,7 +87,7 @@ class PriceSearchApiHandler(BaseHTTPRequestHandler):
             currency=str(payload.get("currency", "")),
             max_offers=int(payload.get("maxOffers", 0)),
         )
-        snapshot = server.start_run_use_case.execute(request)
+        snapshot = server.run_service.start_run(request)
         self._write_json(HTTPStatus.CREATED, asdict(snapshot))
 
     def do_DELETE(self) -> None:  # noqa: N802
@@ -111,9 +99,9 @@ class PriceSearchApiHandler(BaseHTTPRequestHandler):
             return
 
         run_id = parsed.path.removeprefix("/api/runs/")
-        deleted = server.delete_run_use_case.execute(run_id)
+        deleted = server.run_service.delete_run(run_id)
         if not deleted:
-            snapshot = server.get_run_use_case.execute(run_id)
+            snapshot = server.run_service.get_run(run_id)
             if snapshot is None:
                 self._write_json(HTTPStatus.NOT_FOUND, {"error": "run_not_found"})
                 return
@@ -151,21 +139,11 @@ def run_server() -> None:
     """Start the HTTP server and block forever."""
     parser = build_parser()
     args = parser.parse_args()
-    (
-        start_run_use_case,
-        get_run_use_case,
-        list_runs_use_case,
-        cancel_run_use_case,
-        delete_run_use_case,
-    ) = build_application()
+    run_service = build_application()
     server = PriceSearchApiServer(
         (args.host, args.port),
         PriceSearchApiHandler,
-        start_run_use_case=start_run_use_case,
-        get_run_use_case=get_run_use_case,
-        list_runs_use_case=list_runs_use_case,
-        cancel_run_use_case=cancel_run_use_case,
-        delete_run_use_case=delete_run_use_case,
+        run_service=run_service,
     )
     server.serve_forever()
 

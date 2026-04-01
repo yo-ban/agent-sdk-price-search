@@ -7,7 +7,6 @@ import json
 from dataclasses import asdict
 
 from searxng_search_cli.adapters.self_hosted_search import SelfHostedSearxngSearchAdapter
-from searxng_search_cli.application.run_search import RunSearxngSearchUseCase
 from searxng_search_cli.config import load_config
 from searxng_search_cli.contracts.request import SearxngSearchRequest
 
@@ -59,18 +58,16 @@ def run_cli() -> int:
     """Parse CLI arguments and print the normalized JSON response."""
     config = load_config()
     args = build_parser().parse_args()
-    use_case = RunSearxngSearchUseCase(
-        search_port=SelfHostedSearxngSearchAdapter(config=config),
-    )
-    response = use_case.execute(
-        request=SearxngSearchRequest(
+    search_adapter = SelfHostedSearxngSearchAdapter(config=config)
+    response = search_adapter.search(
+        SearxngSearchRequest(
             query=args.query,
             limit=args.limit,
             language=args.language,
             engines=tuple(args.engines or config.searxng_engines),
             include_domains=tuple(args.include_domains or ()),
             exclude_domains=tuple(args.exclude_domains or ()),
-        )
+        ),
     )
     print(json.dumps(asdict(response), ensure_ascii=False, indent=2))
     return 0

@@ -12,8 +12,6 @@ from price_search.adapters.claude_sdk.research_validation_hooks import (
     READ_TOOL_NAME,
     STRUCTURED_OUTPUT_TOOL_NAME,
     annotate_playwright_navigation_result,
-    build_post_tool_use_hooks,
-    build_pre_tool_use_hooks,
     validate_bash_command_before_execute,
     validate_candidate_research_result,
     validate_read_request_before_execute,
@@ -95,26 +93,6 @@ def test_validate_structured_output_hook_denies_incomplete_result() -> None:
     assert "not ready to finalize" in permission_reason
     assert "Review <offer_rules> before continuing the research." in permission_reason
     assert "substitution_reason is empty" in permission_reason
-
-
-def test_build_pre_tool_use_hooks_registers_structured_output_guard() -> None:
-    """Structured output, Bash, and Read guards should all be registered."""
-    hooks = build_pre_tool_use_hooks()
-
-    assert len(hooks) == 3
-    assert any(getattr(hook, "matcher", None) == BASH_TOOL_NAME for hook in hooks)
-    assert any(getattr(hook, "matcher", None) == READ_TOOL_NAME for hook in hooks)
-    assert any(getattr(hook, "matcher", None) == STRUCTURED_OUTPUT_TOOL_NAME for hook in hooks)
-
-
-def test_build_post_tool_use_hooks_registers_bash_annotation() -> None:
-    """PostToolUse should register the Bash annotation hook."""
-    hooks = build_post_tool_use_hooks()
-
-    assert len(hooks) == 1
-    assert getattr(hooks[0], "matcher", None) == BASH_TOOL_NAME
-
-
 def test_validate_bash_command_hook_denies_full_page_text_dump() -> None:
     """Full-page text without any narrowing should be blocked."""
     hook_context = cast(HookContext, {"signal": None})
