@@ -1,4 +1,12 @@
-import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import type { RunData, RunStatus, RunSummary, TimelineItem } from "../types";
 import {
   RUN_STATUS_LABELS,
@@ -46,6 +54,7 @@ export function RunView({
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const tlRef = useRef<HTMLDivElement>(null);
   const timelineWrapRef = useRef<HTMLDivElement>(null);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
   const [timelineMaxHeight, setTimelineMaxHeight] = useState<number | null>(null);
 
   const displayedItems = instant ? run.timeline : items;
@@ -136,6 +145,32 @@ export function RunView({
       }
       return next;
     });
+  };
+
+  const rememberPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    pointerDownRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const toggleItemFromClick = (
+    event: MouseEvent<HTMLDivElement>,
+    index: number,
+  ) => {
+    const selectionText = window.getSelection()?.toString().trim() ?? "";
+    if (selectionText.length > 0) {
+      return;
+    }
+
+    const pointerDown = pointerDownRef.current;
+    pointerDownRef.current = null;
+    if (pointerDown !== null) {
+      const movedX = Math.abs(event.clientX - pointerDown.x);
+      const movedY = Math.abs(event.clientY - pointerDown.y);
+      if (movedX > 4 || movedY > 4) {
+        return;
+      }
+    }
+
+    toggleItem(index);
   };
 
   const elapsedMs = isReplaying
@@ -239,7 +274,8 @@ export function RunView({
                   <div
                     key={i}
                     className={`tl-event${expanded ? " expanded" : ""}`}
-                    onClick={() => toggleItem(i)}
+                    onPointerDown={rememberPointerDown}
+                    onClick={(event) => toggleItemFromClick(event, i)}
                   >
                     <div className="tl-time">{formatDuration(item.t)}</div>
                     <div className={`tl-icon ${icon.cls}`}>{icon.letter}</div>
