@@ -7,6 +7,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 
+from PIL import Image as PillowImage
+
 _FILTER_SCRIPT = (
     Path(__file__).resolve().parents[2]
     / "workspace_assets"
@@ -119,6 +121,54 @@ def test_filter_playwright_cli_output_resolves_bare_snapshot_filename_from_hidde
             - Page Title: Example Domain
             ### Snapshot
             - [Snapshot]({snapshot_path.resolve()})
+            """
+        ).lstrip()
+
+
+def test_filter_playwright_cli_output_appends_screenshot_dimensions() -> None:
+    """Screenshot result lines should show the resolved path and image dimensions."""
+    with TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        screenshot_path = temp_path / "rakuten-1769.png"
+        PillowImage.new("RGB", (1280, 800), color="white").save(screenshot_path)
+        raw_output = dedent(
+            """
+            ### Result
+            - [Screenshot of viewport](rakuten-1769.png)
+            """
+        ).lstrip()
+
+        filtered_output = _run_filter_script(raw_output=raw_output, cwd=temp_path)
+
+        assert filtered_output == dedent(
+            f"""
+            ### Result
+            - [Screenshot of viewport]({screenshot_path.resolve()}) (1280x800)
+            """
+        ).lstrip()
+
+
+def test_filter_playwright_cli_output_normalizes_relative_screenshot_path_outside_workspace() -> None:
+    """Screenshot links should become absolute even when the path points outside the workspace."""
+    with TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        workspace_path = temp_path / "workspace"
+        workspace_path.mkdir()
+        screenshot_path = temp_path / "amazon-ni-wl705-n.png"
+        PillowImage.new("RGB", (640, 480), color="white").save(screenshot_path)
+        raw_output = dedent(
+            """
+            ### Result
+            - [Screenshot of viewport](../amazon-ni-wl705-n.png)
+            """
+        ).lstrip()
+
+        filtered_output = _run_filter_script(raw_output=raw_output, cwd=workspace_path)
+
+        assert filtered_output == dedent(
+            f"""
+            ### Result
+            - [Screenshot of viewport]({screenshot_path.resolve()}) (640x480)
             """
         ).lstrip()
 
