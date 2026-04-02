@@ -16,7 +16,7 @@ from searxng_search_cli.contracts.response import (
 )
 from searxng_search_cli.ports.search_port import SearxngSearchPort
 
-EXCLUDED_SEARXNG_CATEGORIES = frozenset({"news", "videos", "video", "music", "social media"})
+EXCLUDED_SEARXNG_CATEGORIES = frozenset({"videos", "video", "music"})
 EXCLUDED_RESULT_HOST_KEYWORDS = (
     "youtube.com",
     "youtu.be",
