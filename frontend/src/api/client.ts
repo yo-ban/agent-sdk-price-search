@@ -1,4 +1,4 @@
-import type { RunData, SearchFormValues } from "../types";
+import type { RunData, RunSummary, SearchFormValues } from "../types";
 
 /** Launcher-backed API endpoint prefix. */
 const API_PREFIX = "/api";
@@ -80,9 +80,11 @@ export async function getRun(runId: string): Promise<RunData | null> {
 /**
  * Load the available run history from the API.
  */
-export async function listRuns(): Promise<RunData[]> {
-  return normalizeRunList(
-    await requestJson<RunData[]>(`${API_PREFIX}/runs`, undefined, DEFAULT_TIMEOUT_MS),
+export async function listRuns(): Promise<RunSummary[]> {
+  return await requestJson<RunSummary[]>(
+    `${API_PREFIX}/runs`,
+    undefined,
+    DEFAULT_TIMEOUT_MS,
   );
 }
 
@@ -157,6 +159,3 @@ function normalizeRunData(run: RunData): RunData {
 /**
  * Normalize the run list returned from the API.
  */
-function normalizeRunList(runs: RunData[]): RunData[] {
-  return runs.map(normalizeRunData);
-}

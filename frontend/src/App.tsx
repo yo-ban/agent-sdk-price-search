@@ -1,33 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cancelRun, deleteRun, getRun, listRuns, startRun } from "./api/client";
-import type { RunData, SearchFormValues } from "./types";
+import type { RunData, RunSummary, SearchFormValues } from "./types";
 import { SearchForm } from "./components/SearchForm";
 import { RunView, HistoryList } from "./components/RunView";
 import appIcon from "./assets/icon.svg";
 
 type View = "search" | "run" | "history";
+const RESULT_SETTLE_POLL_LIMIT = 10;
 
 export default function App() {
   const [view, setView] = useState<View>("search");
-  const [runs, setRuns] = useState<Record<string, RunData>>({});
+  const [runSummaries, setRunSummaries] = useState<Record<string, RunSummary>>({});
+  const [runDetails, setRunDetails] = useState<Record<string, RunData>>({});
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingCancels, setPendingCancels] = useState<Record<string, boolean>>({});
   const [pendingDeletes, setPendingDeletes] = useState<Record<string, boolean>>({});
 
-  const currentRun = currentRunId ? runs[currentRunId] ?? null : null;
+  const currentRun = currentRunId ? runDetails[currentRunId] ?? null : null;
   const historyRuns = useMemo(
     () =>
-      Object.entries(runs).sort(([, left], [, right]) =>
+      Object.entries(runSummaries).sort(([, left], [, right]) =>
         right.started_at.localeCompare(left.started_at),
       ),
-    [runs],
+    [runSummaries],
   );
 
   const refreshHistory = useCallback(async () => {
     const fetchedRuns = await listRuns();
-    setRuns(Object.fromEntries(fetchedRuns.map((run) => [run.run_id, run])));
+    setRunSummaries(Object.fromEntries(fetchedRuns.map((run) => [run.run_id, run])));
   }, []);
 
   useEffect(() => {
@@ -44,12 +46,18 @@ export default function App() {
 
     let timeoutId: number | undefined;
     let cancelled = false;
+    let resultSettlePollCount = 0;
 
     const poll = async () => {
       const snapshot = await getRun(currentRunId);
       if (!snapshot || cancelled) {
         if (!cancelled) {
-          setRuns((prev) => {
+          setRunSummaries((prev) => {
+            const next = { ...prev };
+            delete next[currentRunId];
+            return next;
+          });
+          setRunDetails((prev) => {
             const next = { ...prev };
             delete next[currentRunId];
             return next;
@@ -60,12 +68,22 @@ export default function App() {
         return;
       }
 
-      setRuns((prev) => ({
+      setRunDetails((prev) => ({
         ...prev,
         [snapshot.run_id]: snapshot,
       }));
+      setRunSummaries((prev) => ({
+        ...prev,
+        [snapshot.run_id]: toRunSummary(snapshot),
+      }));
 
-      if (snapshot.status === "researching") {
+      if (snapshot.status === "finished" && snapshot.result === null) {
+        resultSettlePollCount += 1;
+      } else {
+        resultSettlePollCount = 0;
+      }
+
+      if (shouldContinuePolling(snapshot, resultSettlePollCount)) {
         timeoutId = window.setTimeout(() => {
           poll().catch((error: unknown) => {
             console.error(error);
@@ -73,6 +91,10 @@ export default function App() {
           });
         }, 1000);
         return;
+      }
+
+      if (snapshot.status === "finished" && snapshot.result === null) {
+        setSubmitError("調査は完了しましたが、結果の反映が遅れています。");
       }
 
       refreshHistory().catch((error: unknown) => {
@@ -98,9 +120,13 @@ export default function App() {
     setSubmitError(null);
     try {
       const run = await startRun(values);
-      setRuns((prev) => ({
+      setRunDetails((prev) => ({
         ...prev,
         [run.run_id]: run,
+      }));
+      setRunSummaries((prev) => ({
+        ...prev,
+        [run.run_id]: toRunSummary(run),
       }));
       setCurrentRunId(run.run_id);
       setView("run");
@@ -113,11 +139,9 @@ export default function App() {
   }, []);
 
   const handleHistorySelect = useCallback((key: string) => {
-    const run = runs[key];
-    if (!run) return;
     setCurrentRunId(key);
     setView("run");
-  }, [runs]);
+  }, []);
 
   const handleCancelRun = useCallback(async (runId: string) => {
     setPendingCancels((prev) => ({ ...prev, [runId]: true }));
@@ -125,9 +149,13 @@ export default function App() {
     try {
       const snapshot = await cancelRun(runId);
       if (snapshot) {
-        setRuns((prev) => ({
+        setRunDetails((prev) => ({
           ...prev,
           [snapshot.run_id]: snapshot,
+        }));
+        setRunSummaries((prev) => ({
+          ...prev,
+          [snapshot.run_id]: toRunSummary(snapshot),
         }));
       }
     } catch (error) {
@@ -150,7 +178,12 @@ export default function App() {
       if (!deleted) {
         return;
       }
-      setRuns((prev) => {
+      setRunSummaries((prev) => {
+        const next = { ...prev };
+        delete next[runId];
+        return next;
+      });
+      setRunDetails((prev) => {
         const next = { ...prev };
         delete next[runId];
         return next;
@@ -216,6 +249,10 @@ export default function App() {
           />
         )}
 
+        {view === "run" && currentRunId && !currentRun && (
+          <div className="tl-empty">調査詳細を読み込んでいます...</div>
+        )}
+
         {view === "history" && (
           <HistoryList
             runs={historyRuns}
@@ -228,5 +265,36 @@ export default function App() {
         )}
       </main>
     </>
+  );
+}
+
+function toRunSummary(run: RunData): RunSummary {
+  return {
+    run_id: run.run_id,
+    product_name: run.product_name,
+    market: run.market,
+    currency: run.currency,
+    max_offers: run.max_offers,
+    model: run.model,
+    status: run.status,
+    started_at: run.started_at,
+    finished_at: run.finished_at,
+    duration_ms: run.duration_ms,
+    total_cost_usd: run.total_cost_usd,
+    num_turns: run.num_turns,
+  };
+}
+
+function shouldContinuePolling(
+  run: RunData,
+  resultSettlePollCount: number,
+): boolean {
+  if (run.status === "researching") {
+    return true;
+  }
+  return (
+    run.status === "finished"
+    && run.result === null
+    && resultSettlePollCount < RESULT_SETTLE_POLL_LIMIT
   );
 }

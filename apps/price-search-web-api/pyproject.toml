@@ -5,6 +5,7 @@ description = "HTTP API for launcher-backed price-search runs."
 readme = "../../README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "price-search-core",
   "price-search-launcher",
 ]
 
@@ -19,4 +20,5 @@ build-backend = "hatchling.build"
 packages = ["src/price_search_web_api"]
 
 [tool.uv.sources]
+price-search-core = { workspace = true }
 price-search-launcher = { workspace = true }

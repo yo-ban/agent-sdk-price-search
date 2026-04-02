@@ -6,6 +6,7 @@ from typing import Protocol
 
 from price_search_web_api.contracts.create_run_request import CreateRunRequest
 from price_search_web_api.contracts.run_snapshot import RunSnapshot
+from price_search_web_api.contracts.run_summary import RunSummary
 
 
 class RunBackendPort(Protocol):
@@ -19,8 +20,8 @@ class RunBackendPort(Protocol):
         """Return the current snapshot for a single run."""
         ...
 
-    def list_runs(self) -> tuple[RunSnapshot, ...]:
-        """Return the available run snapshots."""
+    def list_runs(self) -> tuple[RunSummary, ...]:
+        """Return lightweight summaries for the available runs."""
         ...
 
     def cancel_run(self, run_id: str) -> RunSnapshot | None:

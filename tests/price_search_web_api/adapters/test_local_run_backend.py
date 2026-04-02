@@ -184,6 +184,41 @@ def test_delete_run_hides_terminal_run_from_future_queries(tmp_path: Path) -> No
     assert metadata["deleted_at"]
 
 
+def test_list_runs_returns_metadata_only_summaries(tmp_path: Path) -> None:
+    """The history list should come from run metadata without requiring logs or results."""
+    backend = LocalRunBackend(run_root=tmp_path, python_executable=sys.executable)
+    _write_inline_run(
+        run_directory=tmp_path / "history-run",
+        metadata={
+            "run_id": "history-run",
+            "product_name": "history item",
+            "market": "JP",
+            "currency": "JPY",
+            "max_offers": 2,
+            "model": "claude-sonnet-4-6",
+            "started_at": "2026-03-29T00:00:00+00:00",
+            "finished_at": "2026-03-29T00:00:08+00:00",
+            "cancel_requested_at": None,
+            "deleted_at": None,
+            "pid": 1,
+            "exit_code": 0,
+            "total_cost_usd": 0.123,
+            "num_turns": 7,
+        },
+        log_lines=(),
+    )
+
+    summaries = backend.list_runs()
+
+    assert len(summaries) == 1
+    summary = summaries[0]
+    assert summary.run_id == "history-run"
+    assert summary.status == "finished"
+    assert summary.model == "claude-sonnet-4-6"
+    assert summary.total_cost_usd == 0.123
+    assert summary.num_turns == 7
+
+
 def test_delete_run_rejects_researching_run(tmp_path: Path) -> None:
     """A still-running run cannot be soft-deleted."""
     backend = LocalRunBackend(run_root=tmp_path, python_executable=sys.executable)
@@ -277,6 +312,7 @@ def test_start_run_uses_timestamp_prefixed_run_id(tmp_path: Path, monkeypatch) -
     assert (tmp_path / snapshot.run_id).is_dir()
     metadata = json.loads((tmp_path / snapshot.run_id / "run.json").read_text(encoding="utf-8"))
     assert metadata["run_id"] == snapshot.run_id
+    assert metadata["model"]
 
 
 def _write_inline_run(

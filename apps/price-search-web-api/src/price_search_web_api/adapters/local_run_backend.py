@@ -12,12 +12,16 @@ from threading import Lock, Thread
 from typing import Any
 from uuid import uuid4
 
+from price_search.config import load_config as load_price_search_config
+
 from price_search_web_api.adapters.run_snapshot_projection import (
     build_run_snapshot,
     read_log_events,
 )
+from price_search_web_api.adapters.run_summary_projection import build_run_summary
 from price_search_web_api.contracts.create_run_request import CreateRunRequest
 from price_search_web_api.contracts.run_snapshot import RunSnapshot
+from price_search_web_api.contracts.run_summary import RunSummary
 from price_search_web_api.ports.run_backend_port import RunBackendPort
 
 
@@ -28,6 +32,7 @@ class LocalRunBackend(RunBackendPort):
         """Store filesystem root and Python executable for child processes."""
         self._run_root = run_root
         self._python_executable = python_executable
+        self._default_model = load_price_search_config().primary_model
         self._lock = Lock()
         self._active_processes: dict[str, subprocess.Popen[str]] = {}
 
@@ -43,12 +48,15 @@ class LocalRunBackend(RunBackendPort):
             "market": request.market,
             "currency": request.currency,
             "max_offers": request.max_offers,
+            "model": self._default_model,
             "started_at": _iso_now(),
             "finished_at": None,
             "cancel_requested_at": None,
             "deleted_at": None,
             "pid": None,
             "exit_code": None,
+            "total_cost_usd": None,
+            "num_turns": None,
         }
         _write_json(run_directory / "run.json", metadata)
 
@@ -104,21 +112,27 @@ class LocalRunBackend(RunBackendPort):
             result_payload=result_payload,
         )
 
-    def list_runs(self) -> tuple[RunSnapshot, ...]:
-        """Return all known runs sorted by started_at descending."""
+    def list_runs(self) -> tuple[RunSummary, ...]:
+        """Return all known runs as lightweight summaries."""
         if not self._run_root.exists():
             return ()
 
-        snapshots: list[RunSnapshot] = []
+        summaries: list[RunSummary] = []
         for run_directory in self._run_root.iterdir():
             if not run_directory.is_dir():
                 continue
-            snapshot = self.get_run(run_directory.name)
-            if snapshot is not None:
-                snapshots.append(snapshot)
+            metadata_path = run_directory / "run.json"
+            if not metadata_path.exists():
+                continue
+            metadata = _read_json(metadata_path)
+            if _is_deleted(metadata):
+                continue
+            self._refresh_process_state(run_id=run_directory.name, metadata_path=metadata_path)
+            metadata = _read_json(metadata_path)
+            summaries.append(build_run_summary(metadata=metadata))
 
-        snapshots.sort(key=lambda snapshot: snapshot.started_at, reverse=True)
-        return tuple(snapshots)
+        summaries.sort(key=lambda summary: summary.started_at, reverse=True)
+        return tuple(summaries)
 
     def cancel_run(self, run_id: str) -> RunSnapshot | None:
         """Request cancellation for one running run."""
@@ -195,10 +209,11 @@ class LocalRunBackend(RunBackendPort):
             run_directory = self._run_root / run_id
             metadata_path = run_directory / "run.json"
             if metadata_path.exists():
-                metadata = _read_json(metadata_path)
-                metadata["finished_at"] = _iso_now()
-                metadata["exit_code"] = exit_code
-                _write_json(metadata_path, metadata)
+                self._persist_completion_metadata(
+                    run_directory=run_directory,
+                    metadata_path=metadata_path,
+                    exit_code=exit_code,
+                )
         finally:
             with self._lock:
                 self._active_processes.pop(run_id, None)
@@ -217,9 +232,38 @@ class LocalRunBackend(RunBackendPort):
         if exit_code is None:
             return
 
+        self._persist_completion_metadata(
+            run_directory=metadata_path.parent,
+            metadata_path=metadata_path,
+            exit_code=exit_code,
+        )
+
+    def _persist_completion_metadata(
+        self,
+        *,
+        run_directory: Path,
+        metadata_path: Path,
+        exit_code: int,
+    ) -> None:
+        """Persist terminal metadata that history summaries can read without logs."""
         metadata = _read_json(metadata_path)
         metadata["finished_at"] = metadata.get("finished_at") or _iso_now()
         metadata["exit_code"] = exit_code
+
+        log_path = _latest_file(run_directory / "logs", "*.jsonl")
+        if log_path is not None:
+            result_event = _read_latest_result_event(log_path)
+            if result_event is not None:
+                payload = result_event.get("payload")
+                if isinstance(payload, dict):
+                    metadata["total_cost_usd"] = _coalesce_number(
+                        payload.get("total_cost_usd"),
+                        metadata.get("total_cost_usd"),
+                    )
+                    metadata["num_turns"] = _coalesce_optional_int(
+                        payload.get("num_turns"),
+                        metadata.get("num_turns"),
+                    )
         _write_json(metadata_path, metadata)
 
 
@@ -235,6 +279,19 @@ def _latest_file(directory: Path, pattern: str) -> Path | None:
         return None
     candidates = sorted(directory.glob(pattern))
     return candidates[-1] if candidates else None
+
+
+def _read_latest_result_event(log_path: Path) -> dict[str, Any] | None:
+    """Return the last result_message event from one JSONL log file."""
+    latest_event: dict[str, Any] | None = None
+    for raw_line in log_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parsed = json.loads(line)
+        if isinstance(parsed, dict) and parsed.get("event_type") == "result_message":
+            latest_event = parsed
+    return latest_event
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -265,6 +322,28 @@ def _int_from_metadata(value: Any) -> int | None:
         return int(value)
     if isinstance(value, str) and value.strip().isdigit():
         return int(value)
+    return None
+
+
+def _coalesce_number(*values: Any) -> float | None:
+    """Return the first numeric value from metadata-like inputs."""
+    for value in values:
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int | float):
+            return float(value)
+    return None
+
+
+def _coalesce_optional_int(*values: Any) -> int | None:
+    """Return the first integer-like value from metadata-like inputs."""
+    for value in values:
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
     return None
 
 

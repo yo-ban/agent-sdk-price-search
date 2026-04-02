@@ -55,7 +55,7 @@ def build_run_snapshot(
             _number_field((research_started or {}).get("payload"), "max_offers"),
             metadata.get("max_offers"),
         ),
-        model=_coalesce_string(_system_model(system_init), ""),
+        model=_coalesce_string(_system_model(system_init), metadata.get("model"), ""),
         status=_derive_status(
             result_event=result_event,
             exit_code=metadata.get("exit_code"),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from price_search_web_api.contracts.create_run_request import CreateRunRequest
 from price_search_web_api.contracts.run_snapshot import RunSnapshot
+from price_search_web_api.contracts.run_summary import RunSummary
 from price_search_web_api.ports.run_backend_port import RunBackendPort
 
 
@@ -22,8 +23,8 @@ class RunApplicationService:
         """Return the current snapshot for a single run."""
         return self._backend.get_run(run_id)
 
-    def list_runs(self) -> tuple[RunSnapshot, ...]:
-        """Return the current run list."""
+    def list_runs(self) -> tuple[RunSummary, ...]:
+        """Return the current run list as lightweight summaries."""
         return self._backend.list_runs()
 
     def cancel_run(self, run_id: str) -> RunSnapshot | None:

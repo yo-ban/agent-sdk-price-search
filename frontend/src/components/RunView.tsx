@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
-import type { RunData, RunStatus, TimelineItem } from "../types";
+import type { RunData, RunStatus, RunSummary, TimelineItem } from "../types";
 import {
   RUN_STATUS_LABELS,
   AVAILABILITY_LABELS,
@@ -536,7 +536,7 @@ export function HistoryList({
   pendingCancels,
   pendingDeletes,
 }: {
-  runs: [string, RunData][];
+  runs: [string, RunSummary][];
   onSelect: (key: string) => void;
   onCancel: (key: string) => void;
   onDelete: (key: string) => void;
@@ -606,7 +606,7 @@ export function HistoryList({
   );
 }
 
-function formatRunMeta(run: RunData): string {
+function formatRunMeta(run: RunSummary): string {
   const durationText = `所要 ${formatDuration(run.duration_ms)}`;
   const costText =
     run.total_cost_usd === null ? null : `$${run.total_cost_usd.toFixed(3)}`;

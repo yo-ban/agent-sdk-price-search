@@ -13,6 +13,7 @@ from typing import Any, cast
 from price_search_web_api.application.run_application_service import RunApplicationService
 from price_search_web_api.contracts.create_run_request import CreateRunRequest
 from price_search_web_api.contracts.run_snapshot import RunSnapshot, RunStatus
+from price_search_web_api.contracts.run_summary import RunSummary
 from price_search_web_api.handler.http_server import PriceSearchApiHandler, PriceSearchApiServer
 
 
@@ -20,8 +21,12 @@ class FakeRunService:
     """In-memory run service for HTTP handler behavior tests."""
 
     def __init__(self, snapshots: tuple[RunSnapshot, ...]) -> None:
-        """Store snapshots and capture incoming mutations."""
+        """Store snapshots and summaries and capture incoming mutations."""
         self._snapshots = {snapshot.run_id: snapshot for snapshot in snapshots}
+        self._summaries = {
+            snapshot.run_id: _build_summary(snapshot.run_id, status=snapshot.status)
+            for snapshot in snapshots
+        }
         self.started_requests: list[CreateRunRequest] = []
         self.cancelled_run_ids: list[str] = []
         self.deleted_run_ids: list[str] = []
@@ -35,9 +40,9 @@ class FakeRunService:
         """Return one configured snapshot by ID."""
         return self._snapshots.get(run_id)
 
-    def list_runs(self) -> tuple[RunSnapshot, ...]:
-        """Return all configured snapshots."""
-        return tuple(self._snapshots.values())
+    def list_runs(self) -> tuple[RunSummary, ...]:
+        """Return all configured summaries."""
+        return tuple(self._summaries.values())
 
     def cancel_run(self, run_id: str) -> RunSnapshot | None:
         """Record the cancellation request and return the matching snapshot."""
@@ -69,7 +74,7 @@ def _running_server(run_service: FakeRunService) -> Iterator[PriceSearchApiServe
 
 
 def test_get_runs_returns_service_snapshots() -> None:
-    """GET /api/runs should serialize the application service snapshots."""
+    """GET /api/runs should serialize the application service summaries."""
     snapshot = _build_snapshot(run_id="run-1")
     run_service = FakeRunService((snapshot,))
 
@@ -77,7 +82,7 @@ def test_get_runs_returns_service_snapshots() -> None:
         status, payload = _request_json(server, "GET", "/api/runs")
 
     assert status == 200
-    assert payload == [_snapshot_response(snapshot)]
+    assert payload == [_summary_response(_build_summary("run-1"))]
 
 
 def test_post_runs_builds_create_run_request_from_json_payload() -> None:
@@ -181,3 +186,26 @@ def _snapshot_response(snapshot: RunSnapshot) -> dict[str, Any]:
     payload = asdict(snapshot)
     payload["timeline"] = list(payload["timeline"])
     return payload
+
+
+def _build_summary(run_id: str, status: RunStatus = "researching") -> RunSummary:
+    """Create a minimal run summary for HTTP handler tests."""
+    return RunSummary(
+        run_id=run_id,
+        product_name="全自動コーヒーメーカー ABC-1234",
+        market="JP",
+        currency="JPY",
+        max_offers=3,
+        model="claude-sonnet-4-6",
+        status=status,
+        started_at="2026-03-29T00:00:00+00:00",
+        finished_at=None if status == "researching" else "2026-03-29T00:01:00+00:00",
+        duration_ms=0,
+        total_cost_usd=None,
+        num_turns=None,
+    )
+
+
+def _summary_response(summary: RunSummary) -> dict[str, Any]:
+    """Normalize a summary dataclass to the JSON shape returned by the handler."""
+    return asdict(summary)

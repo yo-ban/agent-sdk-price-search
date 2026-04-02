@@ -52,7 +52,7 @@ export interface TimelineItem {
   images?: TimelineImage[];
 }
 
-export interface RunData {
+export interface RunSummary {
   run_id: string;
   product_name: string;
   market: string;
@@ -65,6 +65,9 @@ export interface RunData {
   duration_ms: number;
   total_cost_usd: number | null;
   num_turns: number | null;
+}
+
+export interface RunData extends RunSummary {
   result: PriceResearchResult | null;
   timeline: TimelineItem[];
 }
