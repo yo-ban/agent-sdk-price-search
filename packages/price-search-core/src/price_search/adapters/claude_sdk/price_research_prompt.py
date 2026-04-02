@@ -40,8 +40,8 @@ Follow these steps in order:
 
 1. **Discover** — Use the `searxng-search` guidance in `<cli_usage>`, then run `searxng-search` via Bash to find candidate product pages. Evaluate the search results before opening any page.
 
-2. **Screen** — Select the most promising product pages from the search results. Prefer official stores, major retailers, and aggregator sites (see `<offer_rules>` and `<discontinuation_judgment>`). 
-Product pages may also show prices for other items, so check carefully. If you need a quick view of the whole page or its visual context, use `playwright-cli screenshot` instead of reading large amounts of page text. 
+2. **Screen** — Select the most promising product pages from the search results. Prefer official stores, major retailers, and aggregator sites (see `<offer_rules>` and `<discontinuation_judgment>`).
+Product pages may also show prices for other items, so check carefully. If you need a quick view of the whole page or its visual context, use `playwright-cli screenshot`, then inspect the image with the `ReadImage` tool rather than `Read`.
 Used items, auction listings, and private sales must always be excluded.
 
 3. **Verify** — Use the `playwright-cli` guidance in `<cli_usage>`, then run `playwright-cli` via Bash to open each candidate page and extract only the fields needed for the structured output. Every offer you return must be backed by at least one verified page.
@@ -120,7 +120,7 @@ Navigation:
 - The browser runtime is pre-provisioned outside the task. Do not bootstrap containers, install runtimes, or rebuild the browser toolchain from inside the task.
 - Prefer following links on the current page or using a site's own search function over constructing URLs by guessing path patterns. Guessed URLs often lead to 404s or wrong products, wasting turns.
 - When a search or listing page is open, extract candidate links from the page and navigate to the most promising one, rather than assembling a URL from assumptions.
-- If you need to inspect the page as a whole, prefer `playwright-cli screenshot` over dumping large amounts of text. Use screenshots for visual confirmation, layout checks, and quick screening.
+- If you need to inspect the page as a whole, prefer `playwright-cli screenshot` over dumping large amounts of text. Inspect screenshot files with the `ReadImage` tool rather than `Read`.
 
 Extraction:
 - Run focused `eval` calls: one call per field (price, availability, seller, release date).
@@ -178,20 +178,12 @@ playwright-cli type "search query"
 playwright-cli click e3
 playwright-cli dblclick e7
 playwright-cli fill e5 "user@example.com"
-playwright-cli drag e2 e8
 playwright-cli hover e4
 playwright-cli select e9 "option-value"
-playwright-cli upload ./document.pdf
-playwright-cli check e12
-playwright-cli uncheck e12
 playwright-cli snapshot
 playwright-cli snapshot --filename=after-click.yaml
 playwright-cli eval "document.title"
 playwright-cli eval "el => el.textContent" e5
-playwright-cli dialog-accept
-playwright-cli dialog-accept "confirmation text"
-playwright-cli dialog-dismiss
-playwright-cli resize 1920 1080
 playwright-cli close
 ```
 
@@ -215,12 +207,19 @@ playwright-cli keyup Shift
 ### Mouse
 
 ```bash
-playwright-cli mousemove 150 300
 playwright-cli mousedown
 playwright-cli mousedown right
 playwright-cli mouseup
 playwright-cli mouseup right
+
+# before using mousemove or mousewheel, move the pointer onto the main page content first.
+# wheel input is sent at the current pointer position, so scrolling may not happen if the pointer
+# is still over a fixed header, overlay, or another non-scrollable element.
+playwright-cli mousemove 400 400
 playwright-cli mousewheel 0 100
+
+# for page-level scrolling, JavaScript is often more reliable than wheel input
+playwright-cli eval "(() => { window.scrollBy(0, 500); return window.scrollY; })()"
 ```
 
 ### Save as
@@ -229,7 +228,6 @@ playwright-cli mousewheel 0 100
 playwright-cli screenshot
 playwright-cli screenshot e5
 playwright-cli screenshot --filename=page.png
-playwright-cli pdf --filename=page.pdf
 ```
 
 ### Tabs
@@ -238,32 +236,7 @@ playwright-cli pdf --filename=page.pdf
 playwright-cli tab-list
 playwright-cli tab-new
 playwright-cli tab-new https://example.com/page
-playwright-cli tab-close
-playwright-cli tab-close 2
 playwright-cli tab-select 0
-```
-
-### Network
-
-```bash
-playwright-cli route "**/*.jpg" --status=404
-playwright-cli route "https://api.example.com/**" --body='{"mock": true}'
-playwright-cli route-list
-playwright-cli unroute "**/*.jpg"
-playwright-cli unroute
-```
-
-### DevTools
-
-```bash
-playwright-cli console
-playwright-cli console warning
-playwright-cli network
-playwright-cli run-code "async page => await page.context().grantPermissions(['geolocation'])"
-playwright-cli tracing-start
-playwright-cli tracing-stop
-playwright-cli video-start
-playwright-cli video-stop video.webm
 ```
 
 ## Snapshots
@@ -296,60 +269,27 @@ snapshot-inspect find .playwright-cli/page-2026-02-14T19-22-42-679Z.yml --text "
 Normal command output may omit debug-only sections such as console events or echoed code. Use `--debug` when you need the raw CLI output, for example `playwright-cli --debug eval "document.title"`.
 
 ## Browser Sessions
-
-```bash
-# create new browser session named "mysession" with persistent profile
-playwright-cli -s=mysession open example.com --persistent
-# same with manually specified profile directory (use when requested explicitly)
-playwright-cli -s=mysession open example.com --profile=/path/to/profile
-playwright-cli -s=mysession click e6
-playwright-cli -s=mysession close  # stop a named browser
-playwright-cli -s=mysession delete-data  # delete user data for persistent session
-
-playwright-cli list
-# Close all browsers
-playwright-cli close-all
-# Forcefully kill all browser processes
-playwright-cli kill-all
-```
-
-# Inspecting Element Attributes
-
-When the snapshot doesn't show an element's `id`, `class`, `data-*` attributes, or other DOM properties, use `eval` to inspect them.
-
-## Examples
-
-```bash
-playwright-cli snapshot
-# snapshot shows a button as e7 but doesn't reveal its id or data attributes
-
-# get the element's id
-playwright-cli eval "el => el.id" e7
-
-# get all CSS classes
-playwright-cli eval "el => el.className" e7
-
-# get a specific attribute
-playwright-cli eval "el => el.getAttribute('data-testid')" e7
-playwright-cli eval "el => el.getAttribute('aria-label')" e7
-
-# get a computed style property
-playwright-cli eval "el => getComputedStyle(el).display" e7
-```
+Prefer a single browser session for the whole task. Open one browser, reuse it, and close it when the task is done.
 
 # Examples
 
-## Example: Form submission
+## Example: Search within a retailer site
 
 ```bash
-playwright-cli open https://example.com/form
+playwright-cli open https://example.com
 playwright-cli snapshot
 
-playwright-cli fill e1 "user@example.com"
-playwright-cli fill e2 "password123"
-playwright-cli click e3
+# find the site's search box in the snapshot, then enter the product name
+playwright-cli fill e2 "<product name or keyword>"
+playwright-cli press Enter
 playwright-cli snapshot
-playwright-cli close
+
+# open the most promising product page from the search results
+playwright-cli click e8
+playwright-cli snapshot
+
+# extract a focused field from the page
+playwright-cli eval "el => el.textContent" e14
 ```
 
 ## Example: Multi-tab workflow
@@ -361,6 +301,19 @@ playwright-cli tab-list
 playwright-cli tab-select 0
 playwright-cli snapshot
 playwright-cli close
+```
+
+## Example: Inspecting Element Attributes
+When the snapshot doesn't show an element's `id`, `class`, `data-*` attributes, or other DOM properties, use `eval` to inspect them.
+
+```bash
+playwright-cli snapshot
+# snapshot shows a button as e7 but doesn't reveal its id or data attributes
+
+# get the element's id
+playwright-cli eval "el => el.id" e7
+
+playwright-cli eval "el => el.getAttribute('aria-label')" e7
 ```
 </playwright-cli>
 
