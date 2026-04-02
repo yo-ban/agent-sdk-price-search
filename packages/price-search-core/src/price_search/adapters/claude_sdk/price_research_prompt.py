@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from price_search.domain.models import ProductResearchQuery
 
@@ -41,10 +42,10 @@ Follow these steps in order:
 1. **Discover** — Use the `searxng-search` guidance in `<cli_usage>`, then run `searxng-search` via Bash to find candidate product pages. Evaluate the search results before opening any page.
 
 2. **Screen** — Select the most promising product pages from the search results. Prefer official stores, major retailers, and aggregator sites (see `<offer_rules>` and `<discontinuation_judgment>`).
-Product pages may also show prices for other items, so check carefully. If you need a quick view of the whole page or its visual context, use `playwright-cli screenshot`, then inspect the image with the `ReadImage` tool rather than `Read`.
-Used items, auction listings, and private sales must always be excluded.
+Product pages may also show prices for other items, so check carefully. Used items, auction listings, and private sales must always be excluded.
 
 3. **Verify** — Use the `playwright-cli` guidance in `<cli_usage>`, then run `playwright-cli` via Bash to open each candidate page and extract only the fields needed for the structured output. Every offer you return must be backed by at least one verified page.
+For a final check of candidate sites, it's also effective to use `playwright-cli screenshot` to view screenshots.
 
 When you choose an approach, follow it through. If it fails, correct course rather than restarting the discovery process from scratch.
 </workflow>
@@ -120,7 +121,7 @@ Navigation:
 - The browser runtime is pre-provisioned outside the task. Do not bootstrap containers, install runtimes, or rebuild the browser toolchain from inside the task.
 - Prefer following links on the current page or using a site's own search function over constructing URLs by guessing path patterns. Guessed URLs often lead to 404s or wrong products, wasting turns.
 - When a search or listing page is open, extract candidate links from the page and navigate to the most promising one, rather than assembling a URL from assumptions.
-- If you need to inspect the page as a whole, prefer `playwright-cli screenshot` over dumping large amounts of text. Inspect screenshot files with the `ReadImage` tool rather than `Read`.
+- If you need to inspect the page as a whole, prefer `playwright-cli screenshot` over dumping large amounts of text. Inspect screenshot files with the `mcp__read-image__ReadImage` tool rather than `Read`.
 
 Extraction:
 - Run focused `eval` calls: one call per field (price, availability, seller, release date).
@@ -181,7 +182,6 @@ playwright-cli fill e5 "user@example.com"
 playwright-cli hover e4
 playwright-cli select e9 "option-value"
 playwright-cli snapshot
-playwright-cli snapshot --filename=after-click.yaml
 playwright-cli eval "document.title"
 playwright-cli eval "el => el.textContent" e5
 playwright-cli close
@@ -207,19 +207,19 @@ playwright-cli keyup Shift
 ### Mouse
 
 ```bash
+# click at the current pointer position
 playwright-cli mousedown
 playwright-cli mousedown right
 playwright-cli mouseup
 playwright-cli mouseup right
 
-# before using mousemove or mousewheel, move the pointer onto the main page content first.
-# wheel input is sent at the current pointer position, so scrolling may not happen if the pointer
-# is still over a fixed header, overlay, or another non-scrollable element.
-playwright-cli mousemove 400 400
-playwright-cli mousewheel 0 100
-
-# for page-level scrolling, JavaScript is often more reliable than wheel input
+# prefer JavaScript for page-level scrolling
 playwright-cli eval "(() => { window.scrollBy(0, 500); return window.scrollY; })()"
+
+# use wheel input only when necessary; it is less reliable on many sites
+playwright-cli mousemove 400 400
+playwright-cli mousedown
+playwright-cli mousewheel 0 100
 ```
 
 ### Save as
@@ -379,7 +379,6 @@ searxng-search "ノートPC 12インチ 価格" --limit 5 --include-domain kakak
 ```
 </searxng-search>
 </cli_usage>
-
 """.strip()
 
 
@@ -399,6 +398,12 @@ def build_price_research_prompt(*, query: ProductResearchQuery) -> PriceResearch
     )
 
     return PriceResearchPrompt(
-        system_append=_SYSTEM_INSTRUCTIONS,
+        system_append=_build_system_prompt(),
         user_message=user_message,
     )
+
+
+def _build_system_prompt() -> str:
+    current_date = datetime.now().astimezone()
+    date_text = f"{current_date.year}/{current_date.month}/{current_date.day}"
+    return f"Today is {date_text}.\n\n{_SYSTEM_INSTRUCTIONS}"
