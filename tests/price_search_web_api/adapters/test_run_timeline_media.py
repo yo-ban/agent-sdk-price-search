@@ -41,8 +41,8 @@ def test_extract_timeline_images_rejects_external_urls() -> None:
     assert images == ()
 
 
-def test_extract_timeline_images_ignores_tool_result_source_payloads() -> None:
-    """Nested tool_result image payloads should not drive previews."""
+def test_extract_timeline_images_accepts_tool_result_source_payloads() -> None:
+    """ReadImage tool results store previews under image.source.data."""
     images = extract_timeline_images(
         [
             {
@@ -61,7 +61,9 @@ def test_extract_timeline_images_ignores_tool_result_source_payloads() -> None:
         ]
     )
 
-    assert images == ()
+    assert len(images) == 1
+    assert images[0].src == "data:image/png;base64,AAAA"
+    assert images[0].media_type == "image/png"
 
 
 def test_extract_timeline_images_ignores_unrelated_nested_dicts() -> None:

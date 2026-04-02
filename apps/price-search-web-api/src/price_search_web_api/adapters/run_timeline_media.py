@@ -62,10 +62,22 @@ def _append_image(
 
 
 def _timeline_image_from_block(block: dict[str, Any]) -> TimelineImage | None:
-    """Normalize one supported tool_use_result image payload into a preview."""
+    """Normalize one supported image payload into a preview."""
     block_type = str(block.get("type") or "").strip().lower()
     if block_type != "image":
         return None
+
+    source_payload = block.get("source")
+    if isinstance(source_payload, dict):
+        source_src = _normalize_inline_image_src(
+            media_type=source_payload.get("media_type"),
+            data=source_payload.get("data"),
+        )
+        if source_src is not None and str(source_payload.get("type") or "").strip() == "base64":
+            return TimelineImage(
+                src=source_src,
+                media_type=_normalize_media_type(source_payload.get("media_type")),
+            )
 
     file_payload = block.get("file")
     if isinstance(file_payload, dict):

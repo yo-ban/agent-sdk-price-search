@@ -17,6 +17,7 @@ from claude_agent_sdk.types import (
 from price_search.adapters.claude_sdk.agent_activity_serialization import (
     stream_message_to_log_event,
 )
+from price_search.adapters.claude_sdk.mcp_servers import build_mcp_servers
 from price_search.adapters.claude_sdk.price_research_prompt import (
     PriceResearchPrompt,
     build_price_research_prompt,
@@ -182,6 +183,7 @@ def _build_options(
         setting_sources=["project"],
         add_dirs=[Path.home()],
         cli_path=workspace_root / "bin" / "claude-code-wrapper",
+        mcp_servers=build_mcp_servers(),
         env=build_claude_code_env(config=config),
         output_format={
             "type": "json_schema",

@@ -218,6 +218,39 @@ def test_validate_bash_command_hook_allows_grep_without_head_or_tail() -> None:
     assert result == {}
 
 
+def test_validate_read_request_hook_denies_image_files_in_favor_of_read_image(
+    tmp_path: Path,
+) -> None:
+    """Image files should be routed to the dedicated ReadImage tool."""
+    image_path = tmp_path / "page.png"
+    image_path.write_bytes(b"png placeholder")
+    hook_context = cast(HookContext, {"signal": None})
+
+    async def run_hook() -> SyncHookJSONOutput:
+        return await validate_read_request_before_execute(
+            {
+                "session_id": "session-1",
+                "transcript_path": "/tmp/transcript.jsonl",
+                "cwd": "/tmp",
+                "agent_id": "agent-1",
+                "agent_type": "default",
+                "hook_event_name": "PreToolUse",
+                "tool_name": READ_TOOL_NAME,
+                "tool_use_id": "tool-image",
+                "tool_input": {
+                    "file_path": str(image_path),
+                },
+            },
+            None,
+            hook_context,
+        )
+
+    result = asyncio.run(run_hook())
+
+    hook_output = cast(dict[str, object], result.get("hookSpecificOutput"))
+    assert hook_output.get("permissionDecision") == "deny"
+
+
 def test_annotate_playwright_navigation_result_warns_on_used_item_snapshot(
     tmp_path: Path,
 ) -> None:

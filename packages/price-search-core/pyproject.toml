@@ -6,6 +6,8 @@ readme = "../../README.md"
 requires-python = ">=3.11"
 dependencies = [
   "claude-agent-sdk==0.1.53",
+  "mcp==1.26.0",
+  "Pillow==12.1.1",
 ]
 
 [project.scripts]

@@ -27,6 +27,11 @@ PLAYWRIGHT_SNAPSHOT_READ_GUIDANCE = (
     "Do not read Playwright snapshot YAML directly. Use snapshot-inspect first, "
     "for example `snapshot-inspect summary <path>` or `snapshot-inspect find <path> --text \"...\"`."
 )
+READ_IMAGE_GUIDANCE = (
+    "Do not use Read for image files. Use the ReadImage tool instead. "
+    "For example: `ReadImage(file_path=\"/path/to/file.png\")`. "
+    "If only part of the image matters, also pass crop_x, crop_y, crop_width, and crop_height."
+)
 USED_ITEM_WARNING_GUIDANCE = (
     "Warning: the Playwright snapshot for this page contains '中古'. "
     "This page may include used-item content, so do not treat any displayed price as eligible "
@@ -186,6 +191,14 @@ async def validate_read_request_before_execute(
     """Playwright snapshot YAML の直接 Read を拒否する。"""
     del tool_use_id, context
     file_path = _string_field(input_data.get("tool_input"), "file_path")
+    if _looks_like_image_file(file_path):
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": input_data["hook_event_name"],
+                "permissionDecision": "deny",
+                "permissionDecisionReason": READ_IMAGE_GUIDANCE,
+            }
+        }
     if not _looks_like_playwright_snapshot(file_path):
         return {}
 
@@ -251,6 +264,16 @@ def _looks_like_playwright_snapshot(file_path: str) -> bool:
         return False
     prefix = content[:512]
     return "[ref=" in prefix and prefix.lstrip().startswith("- ")
+
+
+def _looks_like_image_file(file_path: str) -> bool:
+    """ReadImage tool へ誘導すべきローカル画像だけを検出する。"""
+    if not file_path:
+        return False
+    path = Path(file_path)
+    if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}:
+        return False
+    return path.exists() and path.is_file()
 
 
 def _extract_snapshot_path(tool_response: Any) -> Path | None:
