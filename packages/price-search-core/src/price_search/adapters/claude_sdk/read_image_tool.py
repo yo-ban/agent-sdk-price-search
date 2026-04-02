@@ -13,15 +13,16 @@ from mcp.types import ImageContent
 from PIL import Image as PillowImage
 from PIL import UnidentifiedImageError
 
-
-class ReadImageArgs(TypedDict):
-    """Tool arguments for the ReadImage MCP tool."""
-
-    file_path: str
-    crop_x: NotRequired[int]
-    crop_y: NotRequired[int]
-    crop_width: NotRequired[int]
-    crop_height: NotRequired[int]
+ReadImageArgs = TypedDict(  # noqa: UP013
+    "ReadImageArgs",
+    {
+        "file_path": str,
+        "crop_x": NotRequired[int],
+        "crop_y": NotRequired[int],
+        "crop_width": NotRequired[int],
+        "crop_height": NotRequired[int],
+    },
+)
 
 
 @dataclass(frozen=True, slots=True)

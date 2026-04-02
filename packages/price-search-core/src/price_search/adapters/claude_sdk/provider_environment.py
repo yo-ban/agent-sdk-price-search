@@ -32,6 +32,7 @@ def build_claude_code_env(*, config: AppConfig) -> dict[str, str]:
 
     shared_env = {
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+        "ENABLE_TOOL_SEARCH": "true",
         "ANTHROPIC_MODEL": config.primary_model,
         "ANTHROPIC_DEFAULT_SONNET_MODEL": config.primary_model,
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": config.small_model,

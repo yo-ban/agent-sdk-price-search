@@ -44,6 +44,7 @@ from price_search.ports.price_research_agent_port import (
 )
 
 LOGGER = logging.getLogger(__name__)
+SDK_JSON_BUFFER_SIZE_BYTES = 8 * 1024 * 1024
 
 # エージェントに使わせない組み込みツール
 DISALLOWED_BUILT_IN_TOOLS = [
@@ -59,6 +60,7 @@ DISALLOWED_BUILT_IN_TOOLS = [
     "NotebookEdit",
     "WebFetch",
     "WebSearch",
+    "RemoteTrigger"
 ]
 
 
@@ -163,15 +165,7 @@ def _build_options(
         model=config.primary_model,
         thinking=_build_thinking_config(config=config),
         effort=config.agent_effort,
-        system_prompt={
-            "type": "preset",
-            "preset": "claude_code",
-            "append": research_prompt.system_append,
-        },
-        allowed_tools=[
-            "Skill",
-            "Bash",
-        ],
+        system_prompt=research_prompt.system_append,
         hooks={
             "PreToolUse": build_pre_tool_use_hooks(),
             "PostToolUse": build_post_tool_use_hooks(),
@@ -185,6 +179,7 @@ def _build_options(
         cli_path=workspace_root / "bin" / "claude-code-wrapper",
         mcp_servers=build_mcp_servers(),
         env=build_claude_code_env(config=config),
+        max_buffer_size=SDK_JSON_BUFFER_SIZE_BYTES,
         output_format={
             "type": "json_schema",
             "schema": build_structured_output_schema(),

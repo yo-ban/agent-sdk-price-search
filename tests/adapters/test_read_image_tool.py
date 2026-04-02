@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any, cast
 
 from PIL import Image as PillowImage
-from price_search.adapters.claude_sdk.read_image_tool import READ_IMAGE_TOOL
+from price_search.adapters.claude_sdk.read_image_tool import READ_IMAGE_TOOL, ReadImageArgs
+
+
+def test_read_image_tool_schema_requires_only_file_path() -> None:
+    """The tool schema should require only file_path when crop is omitted."""
+    assert getattr(ReadImageArgs, "__required_keys__", set()) == {"file_path"}
 
 
 def test_read_image_returns_original_image_when_no_crop_is_requested(tmp_path: Path) -> None:

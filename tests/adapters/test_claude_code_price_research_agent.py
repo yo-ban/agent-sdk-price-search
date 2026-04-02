@@ -10,6 +10,7 @@ from typing import Any
 from claude_agent_sdk import AssistantMessage, ToolUseBlock
 from price_search.adapters.claude_sdk.price_research_agent import (
     DISALLOWED_BUILT_IN_TOOLS,
+    SDK_JSON_BUFFER_SIZE_BYTES,
     ClaudeCodePriceResearchAgent,
 )
 from price_search.config import AppConfig
@@ -82,6 +83,7 @@ def test_research_builds_bedrock_sdk_options_and_logs_provider(
     assert options.model == config.primary_model
     assert options.fallback_model == config.small_model
     assert options.disallowed_tools == DISALLOWED_BUILT_IN_TOOLS
+    assert options.max_buffer_size == SDK_JSON_BUFFER_SIZE_BYTES
     assert options.mcp_servers
     assert Path(options.cli_path) == (Path(config.workspace_root) / "bin" / "claude-code-wrapper")
     assert options.env["CLAUDE_CODE_USE_BEDROCK"]
