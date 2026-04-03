@@ -25,17 +25,15 @@ def build_run_snapshot(
     system_init = _find_system_init(log_events)
 
     finished_at = str(
-        (result_event or {}).get("logged_at")
-        or metadata.get("finished_at")
+        metadata.get("finished_at")
+        or (result_event or {}).get("logged_at")
         or _last_logged_at(log_events)
         or ""
     )
     finished_at_value = finished_at or None
     finished_at_ms = _to_epoch_ms(finished_at) if finished_at else started_at_ms
 
-    duration_ms = _number_field((result_event or {}).get("payload"), "duration_ms")
-    if duration_ms is None:
-        duration_ms = max(finished_at_ms - started_at_ms, 0)
+    duration_ms = max(finished_at_ms - started_at_ms, 0)
 
     return RunSnapshot(
         run_id=str(metadata.get("run_id") or _first_run_id(log_events) or ""),

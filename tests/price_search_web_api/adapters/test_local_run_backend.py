@@ -219,6 +219,63 @@ def test_list_runs_returns_metadata_only_summaries(tmp_path: Path) -> None:
     assert summary.num_turns == 7
 
 
+def test_get_run_and_list_runs_share_terminal_timing_from_run_metadata(
+    tmp_path: Path,
+) -> None:
+    """History and detail should report the same finished time and duration."""
+    backend = LocalRunBackend(run_root=tmp_path, python_executable=sys.executable)
+    _write_inline_run(
+        run_directory=tmp_path / "timing-run",
+        metadata={
+            "run_id": "timing-run",
+            "product_name": "timing item",
+            "market": "JP",
+            "currency": "JPY",
+            "max_offers": 2,
+            "model": "claude-sonnet-4-6",
+            "started_at": "2026-03-29T00:00:00+00:00",
+            "finished_at": "2026-03-29T00:00:08+00:00",
+            "cancel_requested_at": None,
+            "deleted_at": None,
+            "pid": 1,
+            "exit_code": 0,
+            "total_cost_usd": 0.123,
+            "num_turns": 7,
+        },
+        log_lines=(
+            {
+                "logged_at": "2026-03-29T00:00:00+00:00",
+                "run_id": "timing-run",
+                "event_type": "research_started",
+                "payload": {
+                    "product_name": "timing item",
+                    "market": "JP",
+                    "currency": "JPY",
+                    "max_offers": 2,
+                },
+            },
+            {
+                "logged_at": "2026-03-29T00:00:05+00:00",
+                "run_id": "timing-run",
+                "event_type": "result_message",
+                "payload": {
+                    "is_error": False,
+                    "duration_ms": 5000,
+                    "total_cost_usd": 0.123,
+                    "num_turns": 7,
+                },
+            },
+        ),
+    )
+
+    summary = backend.list_runs()[0]
+    snapshot = backend.get_run("timing-run")
+
+    assert snapshot is not None
+    assert summary.finished_at == snapshot.finished_at
+    assert summary.duration_ms == snapshot.duration_ms
+
+
 def test_delete_run_rejects_researching_run(tmp_path: Path) -> None:
     """A still-running run cannot be soft-deleted."""
     backend = LocalRunBackend(run_root=tmp_path, python_executable=sys.executable)

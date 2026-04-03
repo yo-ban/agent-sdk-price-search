@@ -5,8 +5,8 @@ from __future__ import annotations
 from price_search_web_api.adapters.run_snapshot_projection import build_run_snapshot
 
 
-def test_build_run_snapshot_prefers_log_fields_and_result_event_payload() -> None:
-    """Log events should override metadata and result events should drive terminal fields."""
+def test_build_run_snapshot_uses_metadata_terminal_fields_for_consistent_display() -> None:
+    """Snapshots should use persisted terminal timing so detail matches history."""
     snapshot = build_run_snapshot(
         metadata={
             "run_id": "run-1",
@@ -46,7 +46,6 @@ def test_build_run_snapshot_prefers_log_fields_and_result_event_payload() -> Non
                 "payload": {
                     "is_error": True,
                     "result": "failed",
-                    "duration_ms": 4567,
                     "total_cost_usd": 1.25,
                     "num_turns": 7,
                 },
@@ -61,8 +60,8 @@ def test_build_run_snapshot_prefers_log_fields_and_result_event_payload() -> Non
     assert snapshot.max_offers == 3
     assert snapshot.model == "claude-sonnet-4-6"
     assert snapshot.status == "failed"
-    assert snapshot.finished_at == "2026-03-29T00:02:00+00:00"
-    assert snapshot.duration_ms == 4567
+    assert snapshot.finished_at == "2026-03-29T00:03:00+00:00"
+    assert snapshot.duration_ms == 180000
     assert snapshot.total_cost_usd == 1.25
     assert snapshot.num_turns == 7
 

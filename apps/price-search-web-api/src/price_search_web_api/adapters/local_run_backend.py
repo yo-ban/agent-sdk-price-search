@@ -247,13 +247,16 @@ class LocalRunBackend(RunBackendPort):
     ) -> None:
         """Persist terminal metadata that history summaries can read without logs."""
         metadata = _read_json(metadata_path)
-        metadata["finished_at"] = metadata.get("finished_at") or _iso_now()
         metadata["exit_code"] = exit_code
 
         log_path = _latest_file(run_directory / "logs", "*.jsonl")
         if log_path is not None:
             result_event = _read_latest_result_event(log_path)
             if result_event is not None:
+                metadata["finished_at"] = _coalesce_string(
+                    result_event.get("logged_at"),
+                    metadata.get("finished_at"),
+                )
                 payload = result_event.get("payload")
                 if isinstance(payload, dict):
                     metadata["total_cost_usd"] = _coalesce_number(
@@ -264,6 +267,7 @@ class LocalRunBackend(RunBackendPort):
                         payload.get("num_turns"),
                         metadata.get("num_turns"),
                     )
+        metadata["finished_at"] = _coalesce_string(metadata.get("finished_at"), _iso_now())
         _write_json(metadata_path, metadata)
 
 
@@ -345,6 +349,17 @@ def _coalesce_optional_int(*values: Any) -> int | None:
         if isinstance(value, float):
             return int(value)
     return None
+
+
+def _coalesce_string(*values: Any) -> str:
+    """Return the first non-empty string from metadata-like inputs."""
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
 
 
 def _iso_now() -> str:
