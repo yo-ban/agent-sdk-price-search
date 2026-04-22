@@ -8,7 +8,7 @@ members = [
     "price-search-launcher",
     "price-search-web-api",
     "price-search-workspace",
-    "searxng-search-cli",
+    "web-search-cli",
     "snapshot-inspect-cli",
 ]
 
@@ -500,7 +500,7 @@ dependencies = [
     { name = "price-search-core" },
     { name = "price-search-launcher" },
     { name = "price-search-web-api" },
-    { name = "searxng-search-cli" },
+    { name = "web-search-cli" },
     { name = "snapshot-inspect-cli" },
 ]
 
@@ -516,7 +516,7 @@ requires-dist = [
     { name = "price-search-core", editable = "packages/price-search-core" },
     { name = "price-search-launcher", editable = "apps/price-search-launcher" },
     { name = "price-search-web-api", editable = "apps/price-search-web-api" },
-    { name = "searxng-search-cli", editable = "apps/searxng-search-cli" },
+    { name = "web-search-cli", editable = "apps/web-search-cli" },
     { name = "snapshot-inspect-cli", editable = "apps/snapshot-inspect-cli" },
 ]
 
@@ -899,9 +899,9 @@ wheels = [
 ]
 
 [[package]]
-name = "searxng-search-cli"
+name = "web-search-cli"
 version = "0.1.0"
-source = { editable = "apps/searxng-search-cli" }
+source = { editable = "apps/web-search-cli" }
 
 [[package]]
 name = "snapshot-inspect-cli"

@@ -8,6 +8,9 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Literal
+
+SearchProvider = Literal["searxng", "brave"]
 
 _PLAYWRIGHT_RUNTIME_CHECK = (
     "test -f '/opt/playwright-cli-runtime/node_modules/@playwright/cli/playwright-cli.js' "
@@ -24,16 +27,19 @@ class DockerRuntimeService:
         *,
         repository_root: Path,
         playwright_container_name: str = "price-search-playwright-cli",
+        search_provider: SearchProvider = "searxng",
         searxng_search_url: str = "http://127.0.0.1:18888/search",
     ) -> None:
         """compose file location と readiness 判定情報を保持する。"""
         self._repository_root = repository_root
         self._playwright_container_name = playwright_container_name
+        self._search_provider = search_provider
         self._searxng_search_url = searxng_search_url
 
     def ensure_ready(self) -> None:
-        """SearXNG と Patchright runtime を起動し、応答可能まで待つ。"""
-        self._ensure_searxng_ready()
+        """検索プロバイダ runtime と Patchright runtime を起動し、応答可能まで待つ。"""
+        if self._search_provider == "searxng":
+            self._ensure_searxng_ready()
         self._ensure_playwright_runtime_ready()
 
     def _ensure_searxng_ready(self) -> None:

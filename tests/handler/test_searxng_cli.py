@@ -1,17 +1,17 @@
-"""Handler tests for the SearXNG discovery CLI."""
+"""Handler tests for the web discovery CLI."""
 
 from __future__ import annotations
 
 import json
 import sys
 
-from searxng_search_cli.config import AppConfig
-from searxng_search_cli.contracts.request import SearxngSearchRequest
-from searxng_search_cli.contracts.response import (
-    SearxngSearchResponse,
-    SearxngSearchResultResponse,
+from web_search_cli.config import AppConfig
+from web_search_cli.contracts.request import WebSearchRequest
+from web_search_cli.contracts.response import (
+    WebSearchResponse,
+    WebSearchResultResponse,
 )
-from searxng_search_cli.handler import cli
+from web_search_cli.handler import cli
 
 
 class FakeSearchAdapter:
@@ -22,11 +22,11 @@ class FakeSearchAdapter:
     def __init__(self, config: AppConfig) -> None:
         """Store the received config and expose one deterministic response."""
         self.config = config
-        self.received_request: SearxngSearchRequest | None = None
-        self.response = SearxngSearchResponse(
+        self.received_request: WebSearchRequest | None = None
+        self.response = WebSearchResponse(
             query="全自動コーヒーメーカー ABC-1234",
             results=(
-                SearxngSearchResultResponse(
+                WebSearchResultResponse(
                     title="比較結果",
                     url="https://example.com/item",
                     host="example.com",
@@ -39,7 +39,7 @@ class FakeSearchAdapter:
         )
         self.__class__.instances.append(self)
 
-    def search(self, request: SearxngSearchRequest) -> SearxngSearchResponse:
+    def search(self, request: WebSearchRequest) -> WebSearchResponse:
         """Record the request and return the configured response."""
         self.received_request = request
         return self.response
@@ -57,17 +57,36 @@ def test_build_parser_uses_loaded_defaults(monkeypatch) -> None:
     assert args.language == expected_config.searxng_language
 
 
+def test_build_parser_uses_brave_language_default_when_provider_is_brave(monkeypatch) -> None:
+    """Brave provider should expose the Brave-specific language default."""
+    expected_config = AppConfig(
+        searxng_search_url="http://127.0.0.1:18888/search",
+        searxng_engines=("google", "brave"),
+        searxng_language="ja-JP",
+        searxng_result_limit=8,
+        enable_price_research_normalize=True,
+        search_provider="brave",
+        brave_search_lang="jp",
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: expected_config)
+
+    parser = cli.build_parser()
+    args = parser.parse_args(["全自動コーヒーメーカー ABC-1234"])
+
+    assert args.language == "jp"
+
+
 def test_run_cli_builds_search_request_and_prints_json(monkeypatch, capsys) -> None:
     """CLI execution should call the adapter with the normalized request."""
     FakeSearchAdapter.instances.clear()
     config = _build_config()
     monkeypatch.setattr(cli, "load_config", lambda: config)
-    monkeypatch.setattr(cli, "SelfHostedSearxngSearchAdapter", FakeSearchAdapter)
+    monkeypatch.setattr(cli, "build_search_adapter", lambda *, config: FakeSearchAdapter(config))
     monkeypatch.setattr(
         sys,
         "argv",
         [
-            "searxng-search",
+            "web-search",
             "全自動コーヒーメーカー ABC-1234",
             "--include-domain",
             "kakaku.com",
@@ -78,7 +97,7 @@ def test_run_cli_builds_search_request_and_prints_json(monkeypatch, capsys) -> N
 
     assert exit_code == 0
     adapter = FakeSearchAdapter.instances[-1]
-    assert adapter.received_request == SearxngSearchRequest(
+    assert adapter.received_request == WebSearchRequest(
         query="全自動コーヒーメーカー ABC-1234",
         limit=config.searxng_result_limit,
         language=config.searxng_language,

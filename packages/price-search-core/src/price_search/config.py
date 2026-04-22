@@ -9,6 +9,7 @@ from typing import Literal
 from price_search.config_file import load_file_config
 
 ClaudeProvider = Literal["bedrock", "anthropic", "subscription", "openrouter"]
+SearchProvider = Literal["searxng", "brave"]
 
 # --- Claude provider / モデル設定 ---
 DEFAULT_CLAUDE_PROVIDER: ClaudeProvider = "bedrock"
@@ -34,11 +35,18 @@ DEFAULT_CURRENCY = "JPY"
 DEFAULT_AGENT_ACTIVITY_LOG_DIR = "logs"
 DEFAULT_RESULT_OUTPUT_DIR = "out"
 
-# --- SearXNG 検索エンジン設定 ---
+# --- 検索プロバイダ設定 ---
+DEFAULT_SEARCH_PROVIDER: SearchProvider = "searxng"
 DEFAULT_SEARXNG_SEARCH_URL = "http://127.0.0.1:18888/search"
 DEFAULT_SEARXNG_ENGINES = "brave,google,duckduckgo"
 DEFAULT_SEARXNG_LANGUAGE = "ja-JP"
 DEFAULT_SEARXNG_RESULT_LIMIT = 8
+DEFAULT_BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
+DEFAULT_BRAVE_COUNTRY = "JP"
+DEFAULT_BRAVE_SEARCH_LANG = "jp"
+DEFAULT_BRAVE_UI_LANG = "ja-JP"
+DEFAULT_BRAVE_RESULT_FILTER = "web"
+DEFAULT_BRAVE_EXTRA_SNIPPETS = False
 
 # --- ワークスペース ---
 DEFAULT_WORKSPACE_ROOT = "."
@@ -70,6 +78,14 @@ class AppConfig:
     searxng_language: str
     searxng_result_limit: int
     workspace_root: str
+    search_provider: SearchProvider = DEFAULT_SEARCH_PROVIDER
+    brave_endpoint: str = DEFAULT_BRAVE_ENDPOINT
+    brave_api_key: str | None = None
+    brave_country: str = DEFAULT_BRAVE_COUNTRY
+    brave_search_lang: str = DEFAULT_BRAVE_SEARCH_LANG
+    brave_ui_lang: str = DEFAULT_BRAVE_UI_LANG
+    brave_result_filter: tuple[str, ...] = (DEFAULT_BRAVE_RESULT_FILTER,)
+    brave_extra_snippets: bool = DEFAULT_BRAVE_EXTRA_SNIPPETS
 
 
 def load_config() -> AppConfig:
@@ -172,6 +188,13 @@ def load_config() -> AppConfig:
             file_value=file_config.output.result_output_dir,
             default=DEFAULT_RESULT_OUTPUT_DIR,
         ),
+        search_provider=_parse_search_provider(
+            _resolve_str(
+                env_name="PRICE_SEARCH_SEARCH_PROVIDER",
+                file_value=file_config.discovery.provider,
+                default=DEFAULT_SEARCH_PROVIDER,
+            )
+        ),
         searxng_search_url=_resolve_str(
             env_name="PRICE_SEARCH_SEARXNG_SEARCH_URL",
             file_value=file_config.searxng.search_url,
@@ -196,6 +219,40 @@ def load_config() -> AppConfig:
             env_name="PRICE_SEARCH_WORKSPACE_ROOT",
             file_value=file_config.workspace.root,
             default=DEFAULT_WORKSPACE_ROOT,
+        ),
+        brave_endpoint=_resolve_str(
+            env_name="PRICE_SEARCH_BRAVE_ENDPOINT",
+            file_value=file_config.brave.endpoint,
+            default=DEFAULT_BRAVE_ENDPOINT,
+        ),
+        brave_api_key=_resolve_optional_str(
+            env_name="BRAVE_API_KEY",
+            file_value=file_config.brave.api_key,
+        ),
+        brave_country=_resolve_str(
+            env_name="PRICE_SEARCH_BRAVE_COUNTRY",
+            file_value=file_config.brave.country,
+            default=DEFAULT_BRAVE_COUNTRY,
+        ),
+        brave_search_lang=_resolve_str(
+            env_name="PRICE_SEARCH_BRAVE_SEARCH_LANG",
+            file_value=file_config.brave.search_lang,
+            default=DEFAULT_BRAVE_SEARCH_LANG,
+        ),
+        brave_ui_lang=_resolve_str(
+            env_name="PRICE_SEARCH_BRAVE_UI_LANG",
+            file_value=file_config.brave.ui_lang,
+            default=DEFAULT_BRAVE_UI_LANG,
+        ),
+        brave_result_filter=_resolve_csv_setting(
+            env_name="PRICE_SEARCH_BRAVE_RESULT_FILTER",
+            file_value=file_config.brave.result_filter,
+            default=_split_csv(DEFAULT_BRAVE_RESULT_FILTER),
+        ),
+        brave_extra_snippets=_resolve_bool(
+            env_name="PRICE_SEARCH_BRAVE_EXTRA_SNIPPETS",
+            file_value=file_config.brave.extra_snippets,
+            default=DEFAULT_BRAVE_EXTRA_SNIPPETS,
         ),
     )
 
@@ -228,6 +285,16 @@ def _resolve_optional_str(*, env_name: str, file_value: str | None) -> str | Non
     return file_value
 
 
+def _resolve_bool(*, env_name: str, file_value: bool | None, default: bool) -> bool:
+    """env -> file -> default の順で真偽値設定を解決する。"""
+    env_value = _optional_env(env_name)
+    if env_value is not None:
+        return _parse_bool(env_value)
+    if file_value is not None:
+        return file_value
+    return default
+
+
 def _resolve_csv_setting(
     *,
     env_name: str,
@@ -257,6 +324,11 @@ def _optional_env(name: str) -> str | None:
     return normalized or None
 
 
+def _parse_bool(value: str) -> bool:
+    """柔軟な真偽値文字列を bool に変換する。"""
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
 def _default_models_for_provider(*, claude_provider: ClaudeProvider) -> tuple[str, str]:
     """Claude provider ごとの既定 primary / fallback model を返す。"""
     if claude_provider == "bedrock":
@@ -281,6 +353,16 @@ def _parse_claude_provider(value: str) -> ClaudeProvider:
     if normalized not in {"bedrock", "anthropic", "subscription", "openrouter"}:
         raise ValueError(
             "PRICE_SEARCH_CLAUDE_PROVIDER must be one of: bedrock, anthropic, subscription, openrouter"
+        )
+    return normalized  # type: ignore[return-value]
+
+
+def _parse_search_provider(value: str) -> SearchProvider:
+    """検索プロバイダの値を検証して返す。"""
+    normalized = value.strip().lower()
+    if normalized not in {"searxng", "brave"}:
+        raise ValueError(
+            "PRICE_SEARCH_SEARCH_PROVIDER must be one of: searxng, brave"
         )
     return normalized  # type: ignore[return-value]
 

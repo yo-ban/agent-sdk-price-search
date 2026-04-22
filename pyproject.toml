@@ -8,7 +8,7 @@ dependencies = [
   "price-search-core",
   "price-search-launcher",
   "price-search-web-api",
-  "searxng-search-cli",
+  "web-search-cli",
   "snapshot-inspect-cli",
 ]
 
@@ -37,7 +37,7 @@ members = [
   "packages/price-search-core",
   "apps/price-search-launcher",
   "apps/price-search-web-api",
-  "apps/searxng-search-cli",
+  "apps/web-search-cli",
   "apps/snapshot-inspect-cli",
 ]
 
@@ -45,7 +45,7 @@ members = [
 price-search-core = { workspace = true }
 price-search-launcher = { workspace = true }
 price-search-web-api = { workspace = true }
-searxng-search-cli = { workspace = true }
+web-search-cli = { workspace = true }
 snapshot-inspect-cli = { workspace = true }
 claude-agent-sdk = { index = "pypi" }
 
@@ -54,7 +54,7 @@ pythonpath = [
   "packages/price-search-core/src",
   "apps/price-search-launcher/src",
   "apps/price-search-web-api/src",
-  "apps/searxng-search-cli/src",
+  "apps/web-search-cli/src",
   "apps/snapshot-inspect-cli/src",
 ]
 testpaths = ["tests"]

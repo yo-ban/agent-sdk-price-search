@@ -18,7 +18,7 @@ def test_build_run_timeline_labels_tool_results_with_matching_tool_name() -> Non
                             "type": "tool_use",
                             "id": "toolu_query",
                             "name": "Bash",
-                            "input": {"command": "searxng-search ..."},
+                            "input": {"command": "web-search ..."},
                         }
                     ]
                 },
@@ -130,7 +130,7 @@ def test_build_run_timeline_includes_tool_description_in_tool_label() -> None:
                             "id": "toolu_query",
                             "name": "Bash",
                             "input": {
-                                "command": "searxng-search ...",
+                                "command": "web-search ...",
                                 "description": "Search for dynabook W6GZ83PRLB price in Japan",
                             },
                         }
@@ -157,7 +157,7 @@ def test_build_run_timeline_keeps_plain_tool_label_without_description() -> None
                             "type": "tool_use",
                             "id": "toolu_query",
                             "name": "Bash",
-                            "input": {"command": "searxng-search ..."},
+                            "input": {"command": "web-search ..."},
                         }
                     ]
                 },

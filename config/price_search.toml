@@ -1,29 +1,17 @@
 # Shared defaults for this repository.
 # Keep secrets out of this file. Use env vars or config/price_search.local.toml instead.
 
-# subscription
-[claude]
-provider = "subscription" # `bedrock` / `anthropic` / `subscription` / `openrouter`
-primary_model = "claude-sonnet-4-6"
-small_model = "claude-haiku-4-5"
-
 # bedrock
-# [claude]
-# provider = "bedrock" # `bedrock` / `anthropic` / `subscription` / `openrouter`
-# primary_model = "global.anthropic.claude-sonnet-4-6"
-# primary_model_capabilities = "effort,max_effort,thinking,adaptive_thinking,interleaved_thinking"
-# small_model = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
-# small_model_capabilities = "max_effort,thinking"
-#
-# [aws]
-# region = "ap-northeast-1"
-# profile = "default"
+[claude]
+provider = "bedrock"
+primary_model = "arn:aws:bedrock:ap-northeast-1:874712576047:application-inference-profile/ldjo9vpl86ui"
+primary_model_capabilities = "max_effort,thinking"
+small_model = "arn:aws:bedrock:ap-northeast-1:874712576047:application-inference-profile/h9ylt4gw0g7k"
+small_model_capabilities = "effort,max_effort,thinking,adaptive_thinking,interleaved_thinking"
 
-# openrouter
-# [claude]
-# provider = "openrouter" # `bedrock` / `anthropic` / `subscription` / `openrouter`
-# primary_model = "openai/gpt-5.4-mini"
-# small_model = "z-ai/glm-5-turbo"
+[aws]
+region = "ap-northeast-1"
+profile = "svc"
 
 [agent]
 thinking_type = "enabled"
@@ -40,11 +28,13 @@ currency = "JPY"
 agent_activity_log_dir = "logs"
 result_output_dir = "out"
 
-[searxng]
-search_url = "http://127.0.0.1:18888/search"
-engines = ["brave", "google", "duckduckgo"]
-language = "ja-JP"
-result_limit = 8
+[discovery]
+provider = "brave"
 
-[workspace]
-root = "."
+[brave]
+endpoint = "https://api.search.brave.com/res/v1/web/search"
+country = "JP"
+search_lang = "jp"
+ui_lang = "ja-JP"
+result_filter = ["web"]
+extra_snippets = true

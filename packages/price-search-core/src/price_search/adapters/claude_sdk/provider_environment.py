@@ -32,19 +32,28 @@ def build_claude_code_env(*, config: AppConfig) -> dict[str, str]:
 
     shared_env = {
         "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
-        "ENABLE_TOOL_SEARCH": "true",
+        "ENABLE_TOOL_SEARCH": "false",
         "ANTHROPIC_MODEL": config.primary_model,
         "ANTHROPIC_DEFAULT_SONNET_MODEL": config.primary_model,
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": config.small_model,
         "PATH": path_value,
         "PRICE_SEARCH_CLAUDE_REAL_CLI_PATH": _discover_claude_cli_path(),
         "PRICE_SEARCH_CLAUDE_UNSET_ENV": ",".join(_provider_reset_env_names(config=config)),
+        "PRICE_SEARCH_SEARCH_PROVIDER": config.search_provider,
         "PRICE_SEARCH_SEARXNG_SEARCH_URL": config.searxng_search_url,
         "PRICE_SEARCH_SEARXNG_ENGINES": ",".join(config.searxng_engines),
         "PRICE_SEARCH_SEARXNG_LANGUAGE": config.searxng_language,
         "PRICE_SEARCH_SEARXNG_RESULT_LIMIT": str(config.searxng_result_limit),
+        "PRICE_SEARCH_BRAVE_ENDPOINT": config.brave_endpoint,
+        "PRICE_SEARCH_BRAVE_COUNTRY": config.brave_country,
+        "PRICE_SEARCH_BRAVE_SEARCH_LANG": config.brave_search_lang,
+        "PRICE_SEARCH_BRAVE_UI_LANG": config.brave_ui_lang,
+        "PRICE_SEARCH_BRAVE_RESULT_FILTER": ",".join(config.brave_result_filter),
+        "PRICE_SEARCH_BRAVE_EXTRA_SNIPPETS": "1" if config.brave_extra_snippets else "0",
         "PRICE_SEARCH_WORKSPACE_ROOT": str(workspace_root),
     }
+    if config.brave_api_key is not None:
+        shared_env["PRICE_SEARCH_BRAVE_API_KEY"] = config.brave_api_key
     return {
         **shared_env,
         **_provider_specific_env(config=config),

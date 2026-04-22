@@ -13,6 +13,7 @@ LOCAL_CONFIG_FILE_ENV = "PRICE_SEARCH_LOCAL_CONFIG_FILE"
 DEFAULT_CONFIG_FILE_PATH = "config/price_search.toml"
 DEFAULT_LOCAL_CONFIG_FILE_PATH = "config/price_search.local.toml"
 CLAUDE_SECRET_KEYS = {"anthropic_api_key", "openrouter_api_key"}
+BRAVE_SECRET_KEYS = {"api_key"}
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,13 @@ class OutputFileConfig:
 
 
 @dataclass(frozen=True)
+class DiscoveryFileConfig:
+    """ファイル上の検索プロバイダ設定。"""
+
+    provider: str | None = None
+
+
+@dataclass(frozen=True)
 class SearxngFileConfig:
     """ファイル上の SearXNG 設定。"""
 
@@ -71,6 +79,19 @@ class SearxngFileConfig:
     engines: tuple[str, ...] | None = None
     language: str | None = None
     result_limit: int | None = None
+
+
+@dataclass(frozen=True)
+class BraveFileConfig:
+    """ファイル上の Brave Web Search 設定。"""
+
+    endpoint: str | None = None
+    api_key: str | None = None
+    country: str | None = None
+    search_lang: str | None = None
+    ui_lang: str | None = None
+    result_filter: tuple[str, ...] | None = None
+    extra_snippets: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -89,7 +110,9 @@ class FileConfig:
     agent: AgentFileConfig = field(default_factory=AgentFileConfig)
     market: MarketFileConfig = field(default_factory=MarketFileConfig)
     output: OutputFileConfig = field(default_factory=OutputFileConfig)
+    discovery: DiscoveryFileConfig = field(default_factory=DiscoveryFileConfig)
     searxng: SearxngFileConfig = field(default_factory=SearxngFileConfig)
+    brave: BraveFileConfig = field(default_factory=BraveFileConfig)
     workspace: WorkspaceFileConfig = field(default_factory=WorkspaceFileConfig)
 
 
@@ -151,7 +174,9 @@ def _parse_file_config(raw: dict[str, Any]) -> FileConfig:
         "agent",
         "market",
         "output",
+        "discovery",
         "searxng",
+        "brave",
         "workspace",
     }
     unknown_sections = set(raw) - allowed_sections
@@ -165,7 +190,9 @@ def _parse_file_config(raw: dict[str, Any]) -> FileConfig:
     agent_table = _get_table(raw, "agent")
     market_table = _get_table(raw, "market")
     output_table = _get_table(raw, "output")
+    discovery_table = _get_table(raw, "discovery")
     searxng_table = _get_table(raw, "searxng")
+    brave_table = _get_table(raw, "brave")
     workspace_table = _get_table(raw, "workspace")
     _validate_keys(
         claude_table,
@@ -188,10 +215,16 @@ def _parse_file_config(raw: dict[str, Any]) -> FileConfig:
     )
     _validate_keys(market_table, "market", {"code", "currency"})
     _validate_keys(output_table, "output", {"agent_activity_log_dir", "result_output_dir"})
+    _validate_keys(discovery_table, "discovery", {"provider"})
     _validate_keys(
         searxng_table,
         "searxng",
         {"search_url", "engines", "language", "result_limit"},
+    )
+    _validate_keys(
+        brave_table,
+        "brave",
+        {"endpoint", "api_key", "country", "search_lang", "ui_lang", "result_filter", "extra_snippets"},
     )
     _validate_keys(workspace_table, "workspace", {"root"})
 
@@ -228,11 +261,23 @@ def _parse_file_config(raw: dict[str, Any]) -> FileConfig:
             agent_activity_log_dir=_read_optional_str(output_table, "agent_activity_log_dir"),
             result_output_dir=_read_optional_str(output_table, "result_output_dir"),
         ),
+        discovery=DiscoveryFileConfig(
+            provider=_read_optional_str(discovery_table, "provider"),
+        ),
         searxng=SearxngFileConfig(
             search_url=_read_optional_str(searxng_table, "search_url"),
             engines=_read_optional_str_tuple(searxng_table, "engines"),
             language=_read_optional_str(searxng_table, "language"),
             result_limit=_read_optional_int(searxng_table, "result_limit"),
+        ),
+        brave=BraveFileConfig(
+            endpoint=_read_optional_str(brave_table, "endpoint"),
+            api_key=_read_optional_str(brave_table, "api_key"),
+            country=_read_optional_str(brave_table, "country"),
+            search_lang=_read_optional_str(brave_table, "search_lang"),
+            ui_lang=_read_optional_str(brave_table, "ui_lang"),
+            result_filter=_read_optional_str_tuple(brave_table, "result_filter"),
+            extra_snippets=_read_optional_bool(brave_table, "extra_snippets"),
         ),
         workspace=WorkspaceFileConfig(
             root=_read_optional_str(workspace_table, "root"),
@@ -268,6 +313,13 @@ def _validate_no_shared_claude_secrets(*, raw: dict[str, Any], path: Path) -> No
             "Shared config must not include Claude API secrets in [claude]: "
             f"{', '.join(shared_secret_keys)} ({path})"
         )
+    brave_table = _get_table(raw, "brave")
+    brave_secret_keys = sorted(set(brave_table) & BRAVE_SECRET_KEYS)
+    if brave_secret_keys:
+        raise ValueError(
+            "Shared config must not include Brave API secrets in [brave]: "
+            f"{', '.join(brave_secret_keys)} ({path})"
+        )
 
 
 def _read_optional_str(raw: dict[str, Any], key: str) -> str | None:
@@ -288,6 +340,16 @@ def _read_optional_int(raw: dict[str, Any], key: str) -> int | None:
         return None
     if not isinstance(value, int):
         raise ValueError(f"Config key '{key}' must be an integer")
+    return value
+
+
+def _read_optional_bool(raw: dict[str, Any], key: str) -> bool | None:
+    """TOML table から任意真偽値を読む。"""
+    value = raw.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(f"Config key '{key}' must be a boolean")
     return value
 
 

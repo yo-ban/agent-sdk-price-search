@@ -171,3 +171,43 @@ def test_ensure_ready_rebuilds_playwright_only_after_plain_start_is_insufficient
     service.ensure_ready()
 
     assert [build for path, build in compose_calls if "playwright" in path] == [False, True]
+
+
+def test_ensure_ready_skips_searxng_when_brave_provider_is_selected(
+    monkeypatch,
+) -> None:
+    """Brave provider should skip SearXNG readiness orchestration entirely."""
+    compose_calls: list[tuple[str, bool]] = []
+
+    monkeypatch.setattr(
+        "price_search_launcher.adapters.runtime.docker_runtime_service.time.sleep",
+        lambda _seconds: None,
+    )
+
+    def fail_urlopen(*_args, **_kwargs) -> _JsonResponse:
+        raise AssertionError("SearXNG probe should not run for Brave provider")
+
+    def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ["docker", "compose", "-f"]:
+            compose_calls.append((command[3], "--build" in command))
+            return subprocess.CompletedProcess(command, 0)
+        if command[:3] == ["docker", "inspect", "-f"]:
+            return subprocess.CompletedProcess(command, 0, stdout="true\n")
+        if command[:2] == ["docker", "exec"]:
+            return subprocess.CompletedProcess(command, 0)
+        raise AssertionError(f"unexpected command: {command!r}")
+
+    monkeypatch.setattr(
+        "price_search_launcher.adapters.runtime.docker_runtime_service.urllib.request.urlopen",
+        fail_urlopen,
+    )
+    monkeypatch.setattr(
+        "price_search_launcher.adapters.runtime.docker_runtime_service.subprocess.run",
+        fake_run,
+    )
+
+    service = DockerRuntimeService(repository_root=Path("/repo"), search_provider="brave")
+
+    service.ensure_ready()
+
+    assert compose_calls == []

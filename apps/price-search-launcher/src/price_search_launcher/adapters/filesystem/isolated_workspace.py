@@ -13,7 +13,7 @@ from price_search_launcher.contracts.prepared_workspace import PreparedWorkspace
 _RUNTIME_ASSET_MAPPINGS = (
     (Path("workspace_assets/bin/claude-code-wrapper"), Path("bin/claude-code-wrapper")),
     (Path("workspace_assets/bin/playwright-cli"), Path("bin/playwright-cli")),
-    (Path("workspace_assets/bin/searxng-search"), Path("bin/searxng-search")),
+    (Path("workspace_assets/bin/web-search"), Path("bin/web-search")),
     (Path("workspace_assets/bin/snapshot-inspect"), Path("bin/snapshot-inspect")),
     (Path("workspace_assets/playwright/cli.config.json"), Path("playwright/cli.config.json")),
     (
@@ -113,7 +113,7 @@ def _make_executable_if_needed(*, path: Path) -> None:
     if path.suffix or path.name not in {
         "claude-code-wrapper",
         "playwright-cli",
-        "searxng-search",
+        "web-search",
         "snapshot-inspect",
     }:
         return

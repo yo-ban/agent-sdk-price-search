@@ -39,7 +39,7 @@ Exclude used, auction, rental, refurbished, and subscription listings unless the
 <workflow>
 Follow these steps in order:
 
-1. **Discover** — Use the `searxng-search` guidance in `<cli_usage>`, then run `searxng-search` via Bash to find candidate product pages. Evaluate the search results before opening any page.
+1. **Discover** — Use the `web-search` guidance in `<cli_usage>`, then run `web-search` via Bash to find candidate product pages. Evaluate the search results before opening any page.
 
 2. **Screen** — Select the most promising product pages from the search results. Prefer official stores, major retailers, and aggregator sites (see `<offer_rules>` and `<discontinuation_judgment>`).
 Product pages may also show prices for other items, so check carefully. Used items, auction listings, and private sales must always be excluded.
@@ -101,7 +101,7 @@ Once two signals are confirmed, immediately proceed to identify a successor or e
 </discontinuation_judgment>
 
 <discovery_rules>
-Use the `searxng-search` guidance in `<cli_usage>` as the command reference.
+Use the `web-search` guidance in `<cli_usage>` as the command reference.
 
 - Start with one focused query, not a burst of near-duplicate queries.
 - Use `--include-domain` when you already know the retailers that matter.
@@ -227,7 +227,7 @@ playwright-cli mousewheel 0 100
 ```bash
 playwright-cli screenshot
 playwright-cli screenshot e5
-playwright-cli screenshot --filename=page.png
+playwright-cli screenshot --filename=page.png # DO NOT inluce directory, filename only.
 ```
 
 ### Tabs
@@ -317,10 +317,10 @@ playwright-cli eval "el => el.getAttribute('aria-label')" e7
 ```
 </playwright-cli>
 
-<searxng-search>
-# Product Discovery with searxng-search
+<web-search>
+# Product Discovery with web-search
 
-Use `searxng-search` to discover likely merchant pages and official product pages before opening
+Use `web-search` to discover likely merchant pages and official product pages before opening
 them in the browser.
 
 ## Defaults
@@ -336,9 +336,9 @@ Override them only when there is a concrete reason.
 ## Quick start
 
 ```bash
-searxng-search "全自動コーヒーメーカー ABC-1234 新品"
-searxng-search "XXX家具 120cm 長机" --limit 5
-searxng-search "ノートPC 12インチ 価格" --include-domain kakaku.com --include-domain yodobashi.com
+web-search "全自動コーヒーメーカー ABC-1234 新品"
+web-search "XXX家具 120cm 長机" --limit 5
+web-search "ノートPC 12インチ 価格" --include-domain kakaku.com --include-domain yodobashi.com
 ```
 
 ## Options
@@ -348,11 +348,11 @@ searxng-search "ノートPC 12インチ 価格" --include-domain kakaku.com --in
   - Use a smaller value when you already know the search is narrow and only need a few URLs.
 
 - `--language <locale>`
-  - Pass a locale hint such as `ja-JP` or `en-US` to SearXNG.
+  - Pass a locale hint such as `ja-JP` or `en-US` to the search provider.
   - This changes result tendency, not a strict page-language filter.
 
 - `--engine <name>`
-  - Restrict the query to specific SearXNG engines.
+  - Restrict the query to specific SearXNG engines when the provider is SearXNG.
   - Repeat the flag to use multiple engines, for example:
     `--engine google --engine brave`
 
@@ -374,10 +374,10 @@ searxng-search "ノートPC 12インチ 価格" --include-domain kakaku.com --in
 ## Examples
 
 ```bash
-searxng-search "全自動コーヒーメーカー ABC-1234 新品 在庫あり" --limit 5 --include-domain abc.com --include-domain amazon.co.jp
-searxng-search "ノートPC 12インチ 価格" --limit 5 --include-domain kakaku.com --include-domain yodobashi.com
+web-search "全自動コーヒーメーカー ABC-1234 新品 在庫あり" --limit 5 --include-domain abc.com --include-domain amazon.co.jp
+web-search "ノートPC 12インチ 価格" --limit 5 --include-domain kakaku.com --include-domain yodobashi.com
 ```
-</searxng-search>
+</web-search>
 </cli_usage>
 """.strip()
 

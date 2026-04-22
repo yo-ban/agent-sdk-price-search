@@ -6,31 +6,23 @@ import json
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from searxng_search_cli.config import AppConfig
-from searxng_search_cli.contracts.request import SearxngSearchRequest
-from searxng_search_cli.contracts.response import (
-    SearxngSearchResponse,
-    SearxngSearchResultResponse,
+from web_search_cli.adapters.query_domain_filters import (
+    build_query_with_include_domains,
 )
-from searxng_search_cli.ports.search_port import SearxngSearchPort
+from web_search_cli.adapters.result_normalization import (
+    DiscoverySearchCandidate,
+    normalize_discovery_results,
+)
+from web_search_cli.config import AppConfig
+from web_search_cli.contracts.request import WebSearchRequest
+from web_search_cli.contracts.response import (
+    WebSearchResponse,
+    WebSearchResultResponse,
+)
+from web_search_cli.ports.search_port import WebSearchPort
 
-EXCLUDED_SEARXNG_CATEGORIES = frozenset({"videos", "video", "music"})
-EXCLUDED_RESULT_HOST_KEYWORDS = (
-    "youtube.com",
-    "youtu.be",
-    "music.youtube.com",
-    "spotify.com",
-    "music.apple.com",
-    "x.com",
-    "twitter.com",
-    "instagram.com",
-    "tiktok.com",
-    "facebook.com",
-    "m.facebook.com",
-    "news.yahoo.co.jp",
-)
 SEARXNG_FETCH_MULTIPLIER = 3
 SEARXNG_MAX_FETCH_RESULTS = 30
 SEARXNG_MAX_FETCH_PAGES = 3
@@ -49,18 +41,19 @@ class NormalizedSearxngResult:
     score: float | None
 
 
-class SelfHostedSearxngSearchAdapter(SearxngSearchPort):
+class SelfHostedSearchAdapter(WebSearchPort):
     """Concrete adapter for a local self-hosted SearXNG instance."""
 
     def __init__(self, config: AppConfig) -> None:
         """Store environment-derived connection settings."""
         self._config = config
 
-    def search(self, request: SearxngSearchRequest) -> SearxngSearchResponse:
+    def search(self, request: WebSearchRequest) -> WebSearchResponse:
         """Call the SearXNG API and normalize the returned results."""
         payload = _call_searxng(
             search_url=self._config.searxng_search_url,
             query=request.query,
+            include_domains=request.include_domains,
             engines=request.engines,
             language=request.language,
             desired_result_count=_desired_searxng_result_count(limit=request.limit),
@@ -72,10 +65,11 @@ class SelfHostedSearxngSearchAdapter(SearxngSearchPort):
             exclude_domains=request.exclude_domains,
             enable_price_research_normalize=self._config.enable_price_research_normalize,
         )
-        return SearxngSearchResponse(
-            query=str(normalized.get("query") or request.query),
+        normalized_results = cast(tuple[NormalizedSearxngResult, ...], normalized["results"])
+        return WebSearchResponse(
+            query=request.query,
             results=tuple(
-                SearxngSearchResultResponse(
+                WebSearchResultResponse(
                     title=item.title,
                     url=item.url,
                     host=item.host,
@@ -84,7 +78,7 @@ class SelfHostedSearxngSearchAdapter(SearxngSearchPort):
                     category=item.category,
                     score=item.score,
                 )
-                for item in normalized["results"]
+                for item in normalized_results
             ),
         )
 
@@ -93,18 +87,23 @@ def _call_searxng(
     *,
     search_url: str,
     query: str,
+    include_domains: tuple[str, ...],
     engines: tuple[str, ...],
     language: str,
     desired_result_count: int,
 ) -> dict[str, Any]:
     """Call the SearXNG JSON API and merge paginated results."""
+    effective_query = build_query_with_include_domains(
+        query=query,
+        include_domains=include_domains,
+    )
     merged_payload: dict[str, Any] | None = None
     merged_results: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
 
     for page_no in range(1, SEARXNG_MAX_FETCH_PAGES + 1):
         params = {
-            "q": query,
+            "q": effective_query,
             "format": "json",
             "categories": "general",
             "pageno": page_no,
@@ -157,71 +156,17 @@ def _normalize_searxng_results(
     include_domains: tuple[str, ...],
     exclude_domains: tuple[str, ...],
     enable_price_research_normalize: bool,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Filter and rank raw SearXNG results for price research discovery."""
-    if not enable_price_research_normalize:
-        return _map_raw_searxng_results(payload=payload, limit=limit)
-
-    include_domains_lower = tuple(domain.lower() for domain in include_domains)
-    exclude_domains_lower = tuple(domain.lower() for domain in exclude_domains)
-    normalized_results: list[NormalizedSearxngResult] = []
+    candidates: list[DiscoverySearchCandidate] = []
 
     for item in payload.get("results", []):
         url = str(item.get("url") or "").strip()
         if not url:
             continue
         parsed_url = urllib.parse.urlparse(url)
-        host = parsed_url.netloc.lower()
-        title = str(item.get("title") or "").strip()
-        snippet = str(item.get("content") or "").strip()
-        category = str(item.get("category") or "").strip().lower()
-        if exclude_domains_lower and any(domain in host for domain in exclude_domains_lower):
-            continue
-        if _should_exclude_searxng_result(
-            host=host,
-            path=parsed_url.path.lower(),
-            category=category,
-            title=title,
-            snippet=snippet,
-        ):
-            continue
-        normalized_results.append(
-            NormalizedSearxngResult(
-                title=title,
-                url=url,
-                host=host,
-                snippet=snippet,
-                engines=tuple(str(engine) for engine in item.get("engines") or []),
-                category=str(item.get("category")) if item.get("category") is not None else None,
-                score=float(item["score"]) if item.get("score") is not None else None,
-            )
-        )
-
-    normalized_results.sort(
-        key=lambda item: (
-            not include_domains_lower
-            or not any(domain in item.host for domain in include_domains_lower),
-            item.host,
-            item.title,
-        )
-    )
-    return {
-        "query": payload.get("query"),
-        "results": normalized_results[:limit],
-    }
-
-
-def _map_raw_searxng_results(*, payload: dict[str, Any], limit: int) -> dict[str, Any]:
-    """Map raw SearXNG results without price-research-specific filtering."""
-    normalized_results: list[NormalizedSearxngResult] = []
-
-    for item in payload.get("results", []):
-        url = str(item.get("url") or "").strip()
-        if not url:
-            continue
-        parsed_url = urllib.parse.urlparse(url)
-        normalized_results.append(
-            NormalizedSearxngResult(
+        candidates.append(
+            DiscoverySearchCandidate(
                 title=str(item.get("title") or "").strip(),
                 url=url,
                 host=parsed_url.netloc.lower(),
@@ -229,39 +174,30 @@ def _map_raw_searxng_results(*, payload: dict[str, Any], limit: int) -> dict[str
                 engines=tuple(str(engine) for engine in item.get("engines") or []),
                 category=str(item.get("category")) if item.get("category") is not None else None,
                 score=float(item["score"]) if item.get("score") is not None else None,
+                path=parsed_url.path.lower(),
             )
         )
 
-    return {
-        "query": payload.get("query"),
-        "results": normalized_results[:limit],
-    }
-
-
-def _should_exclude_searxng_result(
-    *,
-    host: str,
-    path: str,
-    category: str,
-    title: str,
-    snippet: str,
-) -> bool:
-    """Exclude obvious news / social / media noise without overfiltering product pages."""
-    if category in EXCLUDED_SEARXNG_CATEGORIES:
-        return True
-    if any(keyword in host for keyword in EXCLUDED_RESULT_HOST_KEYWORDS):
-        return True
-    if path.startswith("/watch") or "/shorts" in path or "/reel" in path or "/videos/" in path:
-        return True
-
-    lowered_text = f"{title} {snippet}".lower()
-    noisy_text_markers = (
-        "official music video",
-        "watch now",
-        "playlist",
-        "listen now",
-        "music video",
-        "動画",
-        "ミュージック",
+    normalized = normalize_discovery_results(
+        query=str(payload.get("query") or ""),
+        candidates=tuple(candidates),
+        limit=limit,
+        include_domains=include_domains,
+        exclude_domains=exclude_domains,
+        enable_price_research_normalize=enable_price_research_normalize,
     )
-    return any(marker in lowered_text for marker in noisy_text_markers)
+    return {
+        "query": normalized["query"],
+        "results": tuple(
+            NormalizedSearxngResult(
+                title=item.title,
+                url=item.url,
+                host=item.host,
+                snippet=item.snippet,
+                engines=item.engines,
+                category=item.category,
+                score=item.score,
+            )
+            for item in cast(tuple[DiscoverySearchCandidate, ...], normalized["results"])
+        ),
+    }

@@ -64,7 +64,7 @@ def test_research_builds_bedrock_sdk_options_and_logs_provider(
                 ToolUseBlock(
                     id="tool-use-1",
                     name=tool_name,
-                    input={"command": "searxng-search 全自動コーヒーメーカー ABC-1234"},
+                    input={"command": "web-search 全自動コーヒーメーカー ABC-1234"},
                 )
             ],
             model=config.primary_model,

@@ -19,14 +19,14 @@ def test_price_search_cli_module_executes_help_output() -> None:
     assert "price-search" in completed.stdout
 
 
-def test_searxng_search_cli_module_executes_help_output() -> None:
-    """`python -m searxng_search_cli.handler.cli --help` should print CLI usage."""
+def test_web_search_cli_module_executes_help_output() -> None:
+    """`python -m web_search_cli.handler.cli --help` should print CLI usage."""
     completed = subprocess.run(
-        [sys.executable, "-m", "searxng_search_cli.handler.cli", "sample", "--help"],
+        [sys.executable, "-m", "web_search_cli.handler.cli", "sample", "--help"],
         check=False,
         text=True,
         capture_output=True,
     )
 
     assert completed.returncode == 0
-    assert "searxng-search" in completed.stdout
+    assert "web-search" in completed.stdout

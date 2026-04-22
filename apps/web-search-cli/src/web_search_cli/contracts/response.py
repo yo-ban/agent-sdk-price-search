@@ -1,4 +1,4 @@
-"""Output DTOs for the SearXNG discovery CLI."""
+"""Output DTOs for the web discovery CLI."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class SearxngSearchResultResponse:
+class WebSearchResultResponse:
     """One normalized discovery result."""
 
     title: str
@@ -19,8 +19,8 @@ class SearxngSearchResultResponse:
 
 
 @dataclass(frozen=True)
-class SearxngSearchResponse:
+class WebSearchResponse:
     """The full discovery response returned to the CLI."""
 
     query: str
-    results: tuple[SearxngSearchResultResponse, ...]
+    results: tuple[WebSearchResultResponse, ...]

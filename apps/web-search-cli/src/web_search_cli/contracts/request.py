@@ -1,4 +1,4 @@
-"""Input DTOs for the SearXNG discovery CLI."""
+"""Input DTOs for the web discovery CLI."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class SearxngSearchRequest:
-    """Discovery search conditions sent to the SearXNG adapter."""
+class WebSearchRequest:
+    """Discovery search conditions sent to the selected search adapter."""
 
     query: str
     limit: int

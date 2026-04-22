@@ -9,7 +9,13 @@ import price_search.config as runtime_config
 import price_search.config_file as config_file_module
 import pytest
 from price_search.config import load_config
-from price_search.config_file import AgentFileConfig, ClaudeFileConfig, FileConfig
+from price_search.config_file import (
+    AgentFileConfig,
+    BraveFileConfig,
+    ClaudeFileConfig,
+    DiscoveryFileConfig,
+    FileConfig,
+)
 
 
 @dataclass(frozen=True)
@@ -247,11 +253,71 @@ def test_load_config_prefers_env_openrouter_api_key_over_local_file(monkeypatch)
     assert config.openrouter_api_key == env_api_key
 
 
+def test_load_config_supports_brave_search_provider_and_settings(monkeypatch) -> None:
+    """Brave discovery settings should surface through the public runtime config loader."""
+    file_config = _build_file_config(
+        claude_provider="subscription",
+        primary_model="claude-sonnet-4-6",
+        small_model="claude-haiku-4-5",
+        discovery_provider="brave",
+        brave_endpoint="https://api.search.brave.com/res/v1/web/search",
+        brave_api_key="brave-token",
+        brave_country="JP",
+        brave_search_lang="jp",
+        brave_ui_lang="ja-JP",
+        brave_result_filter=("web",),
+        brave_extra_snippets=True,
+    )
+    monkeypatch.setattr(runtime_config, "load_file_config", lambda: file_config)
+    _clear_runtime_env(monkeypatch=monkeypatch)
+
+    config = load_config()
+
+    assert config.search_provider == "brave"
+    assert config.brave_api_key == "brave-token"
+    assert config.brave_result_filter == ("web",)
+    assert config.brave_extra_snippets is True
+
+
+def test_load_file_config_rejects_brave_api_key_in_shared_file(monkeypatch) -> None:
+    """Shared config should reject Brave API secrets under the public file loader."""
+    shared_path = Path("shared-config")
+    local_path = Path("local-config")
+    shared_raw = {
+        "brave": {
+            "api_key": "shared-brave-token",
+        }
+    }
+    monkeypatch.setattr(
+        config_file_module,
+        "_config_path_for_env",
+        lambda *, env_name, default_path: (
+            shared_path if env_name == config_file_module.CONFIG_FILE_ENV else local_path
+        ),
+    )
+    monkeypatch.setattr(
+        config_file_module,
+        "_load_toml_file",
+        lambda path: shared_raw if path == shared_path else {},
+    )
+
+    with pytest.raises(ValueError, match="Shared config must not include Brave API secrets"):
+        config_file_module.load_file_config()
+
+
 def _build_file_config(
     *,
     claude_provider: str,
     anthropic_api_key: str | None = None,
     openrouter_api_key: str | None = None,
+    discovery_provider: str | None = None,
+    brave_endpoint: str | None = None,
+    brave_api_key: str | None = None,
+    brave_country: str | None = None,
+    brave_search_lang: str | None = None,
+    brave_ui_lang: str | None = None,
+    brave_result_filter: tuple[str, ...] | None = None,
+    brave_extra_snippets: bool | None = None,
     primary_model: str | None,
     small_model: str | None,
     primary_model_capabilities: str | None = None,
@@ -273,6 +339,18 @@ def _build_file_config(
         agent=AgentFileConfig(
             max_turns=max_turns,
             max_offers=max_offers,
+        ),
+        discovery=DiscoveryFileConfig(
+            provider=discovery_provider,
+        ),
+        brave=BraveFileConfig(
+            endpoint=brave_endpoint,
+            api_key=brave_api_key,
+            country=brave_country,
+            search_lang=brave_search_lang,
+            ui_lang=brave_ui_lang,
+            result_filter=brave_result_filter,
+            extra_snippets=brave_extra_snippets,
         ),
     )
 
@@ -335,7 +413,15 @@ def _clear_runtime_env(*, monkeypatch) -> None:
         "PRICE_SEARCH_SMALL_MODEL",
         "PRICE_SEARCH_PRIMARY_MODEL_CAPABILITIES",
         "PRICE_SEARCH_SMALL_MODEL_CAPABILITIES",
+        "PRICE_SEARCH_SEARCH_PROVIDER",
         "ANTHROPIC_API_KEY",
         "OPENROUTER_API_KEY",
+        "BRAVE_API_KEY",
+        "PRICE_SEARCH_BRAVE_ENDPOINT",
+        "PRICE_SEARCH_BRAVE_COUNTRY",
+        "PRICE_SEARCH_BRAVE_SEARCH_LANG",
+        "PRICE_SEARCH_BRAVE_UI_LANG",
+        "PRICE_SEARCH_BRAVE_RESULT_FILTER",
+        "PRICE_SEARCH_BRAVE_EXTRA_SNIPPETS",
     ):
         monkeypatch.delenv(env_name, raising=False)
